@@ -97,13 +97,18 @@ def main():
         print(f"  {rel}")
 
     print("creating deployment")
-    dep = call(token, team, "/v13/deployments", {
+    body = {
         "name": project,
         "files": manifest,
-        "target": "production" if prod else None,
+        # No framework, no build step — the files are the site.
         "projectSettings": {"framework": None, "buildCommand": None,
                             "outputDirectory": None, "installCommand": None},
-    })
+    }
+    # Sent only for production. A null target is rejected rather than treated
+    # as "preview".
+    if prod:
+        body["target"] = "production"
+    dep = call(token, team, "/v13/deployments", body)
 
     url = dep.get("url")
     dep_id = dep.get("id")

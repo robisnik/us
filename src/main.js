@@ -13,11 +13,46 @@
 
 import {STATIONS} from './stations.js';
 import {P} from './theme.js';
+import * as card from './card.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;
 const SPACING = 420;           // distance between stations
 const FIRST = 300;             // he starts short of the first one, not on it
+const REACH = 150;             // how close counts as "at" a station
+
+/* What is actually out there.
+ *
+ * With a story it is his moments, each at the station its kind belongs to.
+ * Without one it falls back to showing every station once, so the app still
+ * runs and still lets him compare them. The fallback is not a placeholder for
+ * the story — it is the tool he chose the set with, and it stays useful. */
+let placed = STATIONS.map((st, i) => ({
+  x: FIRST + i * SPACING,
+  station: st,
+  moment: null,
+  label: `${i + 1}  ${st.name}`,
+  sub: st.role,
+}));
+
+const byName = Object.fromEntries(STATIONS.map(s => [s.name, s]));
+
+async function loadStory() {
+  try {
+    const r = await fetch('content/story/story.json', {cache: 'no-cache'});
+    if (!r.ok) return;
+    const {moments} = await r.json();
+    if (!Array.isArray(moments) || !moments.length) return;
+    placed = moments.map((m, i) => ({
+      x: FIRST + i * SPACING,
+      station: byName[m.station] || byName.photo,
+      moment: m,
+      label: m.title || '',
+      sub: m.when || '',
+    }));
+  } catch {}
+}
+loadStory();
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -168,26 +203,27 @@ function render(alpha) {
   ctx.beginPath(); ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); ctx.stroke();
 
   let nearest = null, nearestD = Infinity;
-  for (let i = 0; i < STATIONS.length; i++) {
-    const wx = FIRST + i * SPACING;
-    const d = Math.abs(wx - slime.x);
-    if (d < nearestD) { nearestD = d; nearest = i; }
+  for (const it of placed) {
+    const d = Math.abs(it.x - slime.x);
+    if (d < nearestD) { nearestD = d; nearest = it; }
 
-    const px = wx - cx + W / 2;
+    const px = it.x - cx + W / 2;
     if (px < -160 || px > W + 160) continue;
 
     const near = Math.max(0, 1 - d / 200);
-    STATIONS[i].draw(ctx, px, gy, clock, near);
+    it.station.draw(ctx, px, gy, clock, near);
 
     ctx.textAlign = 'center';
     ctx.font = '11px ui-monospace, Menlo, monospace';
     ctx.fillStyle = near > 0.05 ? P.ink : P.inkSoft;
-    ctx.fillText(`${i + 1}  ${STATIONS[i].name}`, px, gy + 24);
-    ctx.font = '10px ui-monospace, Menlo, monospace';
-    ctx.fillStyle = P.inkSoft;
-    ctx.globalAlpha = 0.55 + near * 0.45;
-    ctx.fillText(STATIONS[i].role, px, gy + 39);
-    ctx.globalAlpha = 1;
+    ctx.fillText(it.label, px, gy + 24);
+    if (it.sub) {
+      ctx.font = '10px ui-monospace, Menlo, monospace';
+      ctx.fillStyle = P.inkSoft;
+      ctx.globalAlpha = 0.55 + near * 0.45;
+      ctx.fillText(it.sub, px, gy + 39);
+      ctx.globalAlpha = 1;
+    }
   }
   ctx.textAlign = 'left';
 
@@ -195,20 +231,23 @@ function render(alpha) {
    * above it, so it rests on the line rather than through it. */
   drawSlime(sx - cx + W / 2, sy - cy + H * 0.68 - slime.r * 0.92, alpha);
 
-  hud.textContent =
-    (nearest + 1) + '  ' + STATIONS[nearest].name +
-    '\n' + STATIONS[nearest].role +
-    '\n' + (nearest + 1) + ' of ' + STATIONS.length;
+  /* One line, and only when there is something to do. A readout that is
+   * always on becomes furniture and stops being read. */
+  const atOne = nearest && nearestD < REACH && nearest.moment && !card.isOpen();
+  hud.textContent = atOne ? 'tap to read' : '';
+  hud.style.opacity = atOne ? '1' : '0';
 }
 
 /* ---- input ------------------------------------------------------------- */
 
 let dragging = false, pid = null, lastX = 0, lastY = 0;
+let downX = 0, downY = 0;
+const TAP_SLOP = 8;            // css pixels of travel still counted as a tap
 
 canvas.addEventListener('pointerdown', e => {
   if (pid !== null) return;
   pid = e.pointerId; dragging = true;
-  lastX = e.clientX; lastY = e.clientY;
+  lastX = downX = e.clientX; lastY = downY = e.clientY;
   try { canvas.setPointerCapture(pid); } catch {}
 });
 
@@ -223,8 +262,27 @@ canvas.addEventListener('pointermove', e => {
  * phone, and a drag that never ends would push him away forever. */
 const release = e => {
   if (e && e.pointerId != null && pid !== null && e.pointerId !== pid) return;
+
+  /* A press that never really moved, while standing at something with
+   * something to say, opens it. A drag is a drag and opens nothing. */
+  if (dragging && e && e.clientX != null &&
+      Math.hypot(e.clientX - downX, e.clientY - downY) <= TAP_SLOP) {
+    const at = atStation();
+    if (at) { slime.vx = slime.vy = 0; card.open(at.moment); }
+  }
   dragging = false; pid = null;
 };
+
+/* The nearest thing within reach that has something behind it. */
+function atStation() {
+  let best = null, bestD = REACH;
+  for (const it of placed) {
+    if (!it.moment) continue;
+    const d = Math.abs(it.x - slime.x);
+    if (d < bestD) { bestD = d; best = it; }
+  }
+  return best;
+}
 canvas.addEventListener('pointerup', release);
 canvas.addEventListener('pointercancel', release);
 canvas.addEventListener('lostpointercapture', release);
@@ -254,9 +312,11 @@ requestAnimationFrame(frame);
 if (['localhost', '127.0.0.1'].includes(location.hostname)) {
   window.__dev = {
     slime, cam, STATIONS,
+    get placed() { return placed; },
+    open: i => placed[i]?.moment && card.open(placed[i].moment),
     jump(i) {
       /* Stand him beside it, not on top of it. */
-      const x = FIRST + i * SPACING - 110;
+      const x = (placed[i]?.x ?? FIRST + i * SPACING) - 110;
       slime.x = slime.px = x; slime.y = slime.py = 0;
       slime.vx = slime.vy = 0;
       cam.x = cam.px = x; cam.y = cam.py = 0;

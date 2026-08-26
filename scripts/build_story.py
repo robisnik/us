@@ -23,13 +23,20 @@ OUT = ROOT / "content" / "story" / "story.json"
 PHOTOS = ROOT / "content" / "photos"
 
 # A hint maps to the station that should hold it.
+# Every station answers to its own name as well as to any plain-English alias.
+# Missing a self-name meant [hourglass] was silently treated as prose and left
+# sitting in the middle of a sentence.
 KIND = {
     "photo": "photo", "letter": "letter", "gift": "bloom", "bloom": "bloom",
     "milestone": "cairn", "cairn": "cairn", "place": "pin", "pin": "pin",
     "song": "song", "ritual": "cups", "cups": "cups",
     "together": "fire", "fire": "fire", "idea": "lantern", "lantern": "lantern",
-    "wait": "hourglass", "growing": "sapling", "postbox": "postbox",
+    "wait": "hourglass", "hourglass": "hourglass",
+    "growing": "sapling", "sapling": "sapling",
+    "postbox": "postbox",
 }
+
+UNKNOWN = []
 
 TAG = re.compile(r"\[([a-z]+)(?:\s*:\s*([^\]]*))?\]", re.I)
 
@@ -57,12 +64,16 @@ def parse(text):
             elif name in KIND:
                 kinds.append(name)
             else:
-                return m.group(0)      # not ours — leave it in the prose
+                # Left in the prose, but never silently: a mistyped tag would
+                # otherwise appear mid-sentence in the finished app.
+                UNKNOWN.append(m.group(0))
+                return m.group(0)
             return ""
 
         body = TAG.sub(take, block).strip()
         body = re.sub(r"[ \t]+\n", "\n", body)
         body = re.sub(r"\n{3,}", "\n\n", body)
+        body = unwrap(body)
         if not body and not photo:
             continue
 
@@ -79,6 +90,27 @@ def parse(text):
             "body": body,
         })
     return moments
+
+
+LIST_ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*\u2022])\s")
+
+
+def unwrap(body):
+    """Prose in the source is hard-wrapped for readability; those line breaks
+    are an artefact of the file, not of the writing, and joining them is what
+    lets the app reflow to any screen. A line that begins a list item is a real
+    break and is kept — otherwise eighteen things become one paragraph."""
+    out = []
+    for para in body.split("\n\n"):
+        lines = [l for l in para.split("\n")]
+        joined = []
+        for line in lines:
+            if joined and not LIST_ITEM.match(line) and not LIST_ITEM.match(joined[-1]):
+                joined[-1] = joined[-1].rstrip() + " " + line.strip()
+            else:
+                joined.append(line.strip())
+        out.append("\n".join(j for j in joined if j))
+    return "\n\n".join(out)
 
 
 def headline(body):
@@ -116,6 +148,9 @@ def main():
     print(f"  {len(moments)} moments")
     for k, v in sorted(counts.items(), key=lambda kv: -kv[1]):
         print(f"    {v:>3}  {k}")
+    if UNKNOWN:
+        print(f"  !! {len(UNKNOWN)} tag(s) not recognised, left in the text: "
+              + ", ".join(sorted(set(UNKNOWN))))
     missing = sum(1 for m in moments if m["photo"] and not (ROOT / m["photo"]).exists())
     if missing:
         print(f"  {missing} waiting on photo files")

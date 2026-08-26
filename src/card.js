@@ -49,9 +49,23 @@ export function open(moment, whenClosed) {
   body.innerHTML = '';
   for (const para of String(moment.body || '').split(/\n{2,}/)) {
     if (!para.trim()) continue;
-    const p = document.createElement('p');
-    p.textContent = para.trim();
-    body.append(p);
+    const lines = para.split('\n').filter(l => l.trim());
+    if (lines.length > 1) {
+      /* A paragraph that kept its line breaks is a list — eighteen things,
+       * not one very long sentence. */
+      const ul = document.createElement('div');
+      ul.className = 'card-list';
+      for (const line of lines) {
+        const li = document.createElement('p');
+        li.textContent = line.trim();
+        ul.append(li);
+      }
+      body.append(ul);
+    } else {
+      const p = document.createElement('p');
+      p.textContent = lines[0].trim();
+      body.append(p);
+    }
   }
 
   const src = moment.photo;

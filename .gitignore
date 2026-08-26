@@ -1,0 +1,7 @@
+# Her photographs are not source code and never go in git.
+photos/
+.DS_Store
+
+# Secrets. The Vercel token lives here and never leaves this machine.
+.env.local
+.vercel/

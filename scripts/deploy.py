@@ -17,9 +17,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # Everything the app needs at runtime, and nothing else. Photos and secrets are
 # excluded by construction rather than by a filter someone has to remember.
-INCLUDE_DIRS = ("icons", "story")
-INCLUDE_FILES = ("index.html", "game.js", "stations.js", "style.js",
-                 "sw.js", "manifest.webmanifest")
+INCLUDE_DIRS = ("src", "assets", "content/story")
+INCLUDE_FILES = ("index.html", "sw.js", "manifest.webmanifest")
 SKIP_SUFFIX = (".py", ".pyc")
 
 

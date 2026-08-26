@@ -14,9 +14,10 @@
 const CACHE = 'us-v1';
 const DOC = 'index.html';
 const SHELL = [
-  './', DOC, 'game.js', 'stations.js', 'style.js',
+  './', DOC,
+  'src/main.js', 'src/stations.js', 'src/theme.js', 'src/app.css',
   'manifest.webmanifest',
-  'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
+  'assets/icons/icon-180.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
 ];
 
 self.addEventListener('install', e => {
@@ -42,7 +43,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  if (url.pathname.includes('/story/') || url.pathname.includes('/photos/')) {
+  if (url.pathname.includes('/content/')) {
     e.respondWith(
       fetch(e.request)
         .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })

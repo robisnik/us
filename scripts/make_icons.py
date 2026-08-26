@@ -10,7 +10,7 @@ Run:  python3 scripts/make_icons.py
 """
 import pathlib, struct, zlib
 
-OUT = pathlib.Path(__file__).resolve().parent.parent / "icons"
+OUT = pathlib.Path(__file__).resolve().parent.parent / "assets" / "icons"
 
 BG    = (244, 244, 240)
 BODY  = (59, 168, 143)
@@ -73,7 +73,7 @@ def main():
     # the web manifest wants; 1024 is there if it ever needs a store listing.
     for size, pad in ((180, 10), (192, 11), (512, 28), (1024, 56)):
         n = write_png(OUT / f"icon-{size}.png", draw(size, pad))
-        print(f"  icons/icon-{size}.png  {n:,} bytes")
+        print(f"  assets/icons/icon-{size}.png  {n:,} bytes")
 
 
 if __name__ == "__main__":

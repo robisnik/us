@@ -12,7 +12,7 @@
  */
 
 import {STATIONS} from './stations.js';
-import {P} from './style.js';
+import {P} from './theme.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;

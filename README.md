@@ -21,14 +21,28 @@ station.
 
 ## Layout
 
-| | |
-|---|---|
-| `game.js`      | loop, physics, camera, rendering |
-| `stations.js`  | the twelve stations and what each one is for |
-| `style.js`     | the house style: palette, stroke, the shared pieces |
-| `story/`       | the writing |
-| `photos/`      | never committed |
-| `scripts/make_icons.py` | regenerates the PNG icons |
+```
+index.html              the shell
+manifest.webmanifest    what makes it installable
+sw.js                   offline start
+src/
+  main.js               loop, physics, camera, rendering
+  stations.js           the twelve stations and what each is for
+  theme.js              the house style: palette, stroke, shared pieces
+  app.css               page chrome only
+assets/icons/           generated PNGs — never hand-edited
+content/
+  story/                the writing
+  photos/               never committed
+scripts/
+  serve.py              dev server
+  deploy.py             deploy to Vercel
+  make_icons.py         regenerates the icons
+```
+
+`manifest.webmanifest` and `sw.js` stay at the root on purpose: a service
+worker can only control the paths below where it is served from, so moving it
+into a folder would quietly limit its scope.
 
 ## How it moves
 

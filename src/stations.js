@@ -10,7 +10,7 @@
  * seconds, near is 0..1 proximity.
  */
 
-import {P, LINE, line, post, card, roundRect, halo, shape} from './style.js';
+import {P, LINE, line, post, card, roundRect, halo, shape} from './theme.js';
 
 const TAU = Math.PI * 2;
 

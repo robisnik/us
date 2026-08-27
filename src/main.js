@@ -68,6 +68,14 @@ let justFound = null, justFoundAt = 0;
  * sits past the last moment on purpose: her story ends at the airport and then
  * at eighteen things, and the only honest direction after those is forward. */
 const nodes = nodesFor(WORLD_END, FEATURES).map(n => ({...n, y: 0}));
+
+/* The pouch opens the same panel from anywhere. Building still happens at the
+ * homestead — it is a place, and a place you can build from three regions away
+ * is not one — but she can always see what she is carrying and what it is for,
+ * which is the part that was missing. */
+const pouchBtn = document.getElementById('pouch');
+const pouchCount = document.getElementById('pouch-count');
+pouchBtn.addEventListener('click', () => panel.open(null, false));
 const HOME_X = WORLD_END - 700;
 let toast = null, toastAt = 0;
 
@@ -444,15 +452,16 @@ function render(alpha) {
     const near = Math.max(0, 1 - d / 200);
     it.station.draw(ctx, px, gy, clock, near);
 
-    ctx.textAlign = 'center';
-    ctx.font = '11px ui-monospace, Menlo, monospace';
-    ctx.fillStyle = near > 0.05 ? P.ink : P.inkSoft;
-    ctx.fillText(fit(it.label, Math.min(W - 24, 300)), px, gy + 24);
-    if (it.sub) {
+    /* No label. It used to print the opening words of the memory, which gave
+     * away the thing she is about to open — the station is meant to be a
+     * closed envelope, not a headline. Only the date, only when she is close
+     * enough to be choosing to look. */
+    if (it.sub && near > 0.35) {
+      ctx.textAlign = 'center';
       ctx.font = '10px ui-monospace, Menlo, monospace';
       ctx.fillStyle = P.inkSoft;
-      ctx.globalAlpha = 0.55 + near * 0.45;
-      ctx.fillText(it.sub, px, gy + 39);
+      ctx.globalAlpha = (near - 0.35) / 0.65 * 0.8;
+      ctx.fillText(it.sub, px, gy + 26);
       ctx.globalAlpha = 1;
     }
   }
@@ -482,21 +491,11 @@ function render(alpha) {
     ctx.textAlign = 'left';
   }
 
-  /* What she is carrying. Only shown once she has something, so it is never
-   * an empty widget on the birthday screen. */
-  const carry = Object.entries(tend.inv()).filter(([, n]) => n > 0);
-  if (carry.length) {
-    ctx.textAlign = 'left';
-    ctx.font = '11px ui-monospace, Menlo, monospace';
-    let ix = 14;
-    for (const [k, n] of carry) {
-      ctx.fillStyle = tend.RESOURCES[k].colour;
-      ctx.beginPath(); ctx.arc(ix + 4, H - 18, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = P.inkSoft;
-      ctx.fillText(String(n), ix + 12, H - 14);
-      ix += 12 + ctx.measureText(String(n)).width + 10;
-    }
-  }
+  /* The pouch only appears once she is carrying something, so the birthday
+   * screen is never cluttered with an empty widget. */
+  const total = Object.values(tend.inv()).reduce((a, b) => a + b, 0);
+  pouchBtn.classList.toggle('on', total > 0);
+  if (pouchCount.textContent !== String(total)) pouchCount.textContent = String(total);
 
   /* A word about what just happened, then gone. */
   const tsince = clock - toastAt;
@@ -558,26 +557,6 @@ function motes(W, H, cx, cy, sy2) {
   ctx.globalAlpha = 1;
 }
 
-/* Trims a label to the width available, so a long opening line never runs off
- * the side of a phone. Measured rather than counted: the font is proportional
- * enough that a character count is wrong by a word either way. */
-const fitCache = new Map();
-function fit(text, max) {
-  const key = text + '|' + Math.round(max);
-  if (fitCache.has(key)) return fitCache.get(key);
-  let out = text;
-  if (ctx.measureText(text).width > max) {
-    let lo = 0, hi = text.length;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (ctx.measureText(text.slice(0, mid) + '…').width <= max) lo = mid; else hi = mid - 1;
-    }
-    out = text.slice(0, lo).trimEnd() + '…';
-  }
-  fitCache.set(key, out);
-  return out;
-}
-
 /* Draws the ground across the visible width, plus whatever grows on it.
  *
  * Sampled every few pixels rather than solved: the height function is three
@@ -618,65 +597,55 @@ function drawLand(cx, cy, W, H, pal, sy2) {
 function scenery(x0, x1, cx, W, pal, sy2) {
   const put = (x, y, draw) => { ctx.save(); ctx.translate(x - cx + W / 2, y); draw(); ctx.restore(); };
 
+  /* Deliberately almost nothing.
+   *
+   * There were generic houses scattered across two regions, which is exactly
+   * the clip-art clutter this whole thing is supposed to avoid — a background
+   * full of buildings nobody drew on purpose. What is left is sparse, thin and
+   * regional: enough to say forest, park or dune, and nothing that asks to be
+   * looked at. */
   if (pal.feature === 'forest') {
-    for (const t of scatter(x0, x1, 78, 3)) {
-      const h = 40 + t.r * 46;
+    for (const t of scatter(x0, x1, 210, 3)) {
+      const h = 46 + t.r * 40;
       put(t.x, sy2(heightAt(t.x)), () => {
-        const w = 13 + t.r2 * 6;
-        ctx.fillStyle = pal.ink;
-        /* Canopy first, trunk over it: a triangle drawn behind a line reads as
-         * a tree; the same triangle at a whisper of alpha reads as a smudge
-         * behind a pole. */
-        ctx.globalAlpha = 0.34;
-        for (let tier = 0; tier < 3; tier++) {
-          const ty = -h * (0.34 + tier * 0.22), tw = w * (1 - tier * 0.24);
+        ctx.strokeStyle = pal.ink;
+        ctx.globalAlpha = 0.30;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h); ctx.stroke();
+        for (let i = 0; i < 3; i++) {
+          const y = -h * (0.45 + i * 0.2), w = 9 - i * 2;
           ctx.beginPath();
-          ctx.moveTo(-tw, ty);
-          ctx.lineTo(0, ty - h * 0.30);
-          ctx.lineTo(tw, ty);
-          ctx.closePath(); ctx.fill();
+          ctx.moveTo(-w, y); ctx.lineTo(0, y - 13); ctx.lineTo(w, y);
+          ctx.stroke();
         }
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = pal.ink; ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h * 0.5); ctx.stroke();
         ctx.globalAlpha = 1;
       });
     }
-  } else if (pal.feature === 'town') {
-    for (const t of scatter(x0, x1, 120, 7)) {
-      const w = 34 + t.r * 40, h = 46 + t.r2 * 60;
+  } else if (pal.feature === 'park') {
+    for (const t of scatter(x0, x1, 320, 17)) {
+      const h = 34 + t.r * 20;
       put(t.x, sy2(heightAt(t.x)), () => {
-        ctx.fillStyle = pal.ink; ctx.globalAlpha = 0.26;
-        ctx.fillRect(-w / 2, -h, w, h);
-        if (t.r2 > 0.55) { ctx.beginPath(); ctx.moveTo(-w/2, -h); ctx.lineTo(0, -h - 16); ctx.lineTo(w/2, -h); ctx.fill(); }
+        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.28; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, -h - 7, 11 + t.r2 * 5, 0, Math.PI * 2); ctx.stroke();
         ctx.globalAlpha = 1;
       });
     }
   } else if (pal.feature === 'dune') {
-    for (const t of scatter(x0, x1, 46, 11)) {
+    for (const t of scatter(x0, x1, 150, 11)) {
       put(t.x, sy2(heightAt(t.x)), () => {
-        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.3; ctx.lineWidth = 1.6;
+        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.24; ctx.lineWidth = 1.2;
         ctx.beginPath();
         for (let i = 0; i < 3; i++) {
           ctx.moveTo(i * 3 - 3, 0);
-          ctx.lineTo(i * 3 - 4 - t.r2 * 3, -8 - t.r * 9);
+          ctx.lineTo(i * 3 - 4 - t.r2 * 3, -7 - t.r * 7);
         }
         ctx.stroke(); ctx.globalAlpha = 1;
       });
     }
-  } else if (pal.feature === 'park') {
-    for (const t of scatter(x0, x1, 96, 17)) {
-      const h = 30 + t.r * 26;
-      put(t.x, sy2(heightAt(t.x)), () => {
-        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.45; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h); ctx.stroke();
-        ctx.globalAlpha = 0.2;
-        ctx.beginPath(); ctx.arc(0, -h - 8, 15 + t.r2 * 8, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-      });
-    }
   }
 }
+
 
 /* ---- input ------------------------------------------------------------- */
 
@@ -711,7 +680,7 @@ const release = e => {
       Math.hypot(e.clientX - downX, e.clientY - downY) <= TAP_SLOP) {
     if (Math.abs(slime.x - HOME_X) < 190) {
       slime.vx = 0;
-      panel.open();
+      panel.open(null, true);
       dragging = false; pid = null;
       return;
     }

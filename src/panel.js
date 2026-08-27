@@ -12,7 +12,7 @@
 
 import * as tend from './tend.js';
 
-let el, onChange = null;
+let el, onChange = null, home = true;
 
 function build() {
   el = document.createElement('div');
@@ -20,7 +20,7 @@ function build() {
   el.innerHTML = `
     <div class="panel-sheet" role="dialog" aria-modal="true">
       <button class="panel-close" type="button" aria-label="Close"></button>
-      <h2>the homestead</h2>
+      <h2></h2>
       <div class="panel-carry"></div>
       <div class="panel-plots"></div>
       <div class="panel-builds"></div>
@@ -31,9 +31,10 @@ function build() {
   addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 }
 
-export function open(changed) {
+export function open(changed, atHome = true) {
   if (!el) build();
   onChange = changed || null;
+  home = atHome;
   render();
   el.classList.add('open');
   document.body.classList.add('reading');
@@ -41,14 +42,18 @@ export function open(changed) {
 
 export function close() {
   if (!el || !el.classList.contains('open')) return;
+  /* Let it wobble out rather than vanish. */
+  el.classList.add('closing');
   el.classList.remove('open');
   document.body.classList.remove('reading');
+  setTimeout(() => el.classList.remove('closing'), 280);
 }
 
 export const isOpen = () => !!el && el.classList.contains('open');
 
 function render() {
   const inv = tend.inv();
+  el.querySelector('h2').textContent = home ? 'the homestead' : 'what you are carrying';
 
   const carry = el.querySelector('.panel-carry');
   const held = Object.entries(inv).filter(([, n]) => n > 0);
@@ -57,6 +62,16 @@ function render() {
         `<li><i style="background:${tend.RESOURCES[k].colour}"></i>${n} ${tend.RESOURCES[k].name}</li>`).join('') + '</ul>'
     : '<p class="panel-empty">Nothing yet. There is water and wood by the lake, '
       + 'seeds in the parks, and stone in the dunes.</p>';
+
+  /* Away from the homestead this is just a pouch: what she has, and a line
+   * saying where the rest of it is. Planting and building need the place. */
+  if (!home) {
+    el.querySelector('.panel-plots').innerHTML =
+      '<p class="panel-empty">The homestead is at the far end, past everything. '
+      + 'Bring these there and you can plant and build.</p>';
+    el.querySelector('.panel-builds').innerHTML = '';
+    return;
+  }
 
   /* Plots */
   const plots = tend.plots();

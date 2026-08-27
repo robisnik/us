@@ -122,7 +122,7 @@ No build step, no framework, no dependencies. Plain HTML, CSS and ES modules.
       schema.sql            applied
       invite.sql            guest list + verification queries
     scripts/
-      serve.py  build_story.py  deploy.py  make_icons.py
+      serve.py  build_story.py  deploy.py  make_icons.py  check_js.py
 
 ### Commands
 

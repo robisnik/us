@@ -259,3 +259,82 @@ color: #faf7f0; background: #4f4840; border: 0; border-radius: 999px;
 padding: 8px 14px; cursor: pointer; white-space: nowrap;
 }
 .panel-do { margin-top: 14px; }
+
+
+/* ------------------------------------------------------------- the wobble */
+/*
+ * Everything that appears does it the way the slime moves: it overshoots,
+ * squashes, and settles. A sheet sliding up from the bottom edge is the
+ * gesture of an operating system, not of this world — and the whole character
+ * of the thing is that it is soft and slightly clumsy.
+ *
+ * Scale and rotation only, so it is compositor work and stays smooth on a
+ * phone.
+ */
+@keyframes wobble-in {
+0%   { transform: scale(0.62, 0.74) rotate(-2.6deg); opacity: 0 }
+32%  { transform: scale(1.07, 0.94) rotate(1.4deg);  opacity: 1 }
+54%  { transform: scale(0.96, 1.05) rotate(-0.9deg) }
+72%  { transform: scale(1.02, 0.985) rotate(0.4deg) }
+87%  { transform: scale(0.993, 1.008) rotate(-0.15deg) }
+100% { transform: scale(1, 1) rotate(0deg) }
+}
+@keyframes wobble-out {
+0%   { transform: scale(1) rotate(0); opacity: 1 }
+30%  { transform: scale(1.04, 0.95) rotate(0.8deg); opacity: 1 }
+100% { transform: scale(0.7, 0.8) rotate(-2deg); opacity: 0 }
+}
+
+/* Centred, not docked to an edge. */
+.card, .panel { align-items: center; }
+
+.card-sheet, .panel-sheet {
+border-radius: 18px;
+transform-origin: 50% 55%;
+transition: none;
+max-height: 78%;
+}
+.card.open .card-sheet, .panel.open .panel-sheet {
+animation: wobble-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.card.closing .card-sheet, .panel.closing .panel-sheet {
+animation: wobble-out 260ms ease-in both;
+}
+
+/* The little blob that sits on the sheet, so it reads as belonging to him. */
+.card-sheet::before, .panel-sheet::before {
+content: '';
+position: absolute;
+top: -13px; left: 50%;
+width: 42px; height: 26px;
+margin-left: -21px;
+background: #3ba88f;
+border-radius: 50% 50% 42% 42%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+.card.open .card-sheet, .panel.open .panel-sheet,
+.card.closing .card-sheet, .panel.closing .panel-sheet { animation-duration: 1ms }
+}
+
+/* ------------------------------------------------------------- the pouch */
+
+#pouch {
+position: fixed;
+right: calc(env(safe-area-inset-right) + 14px);
+bottom: calc(env(safe-area-inset-bottom) + 14px);
+z-index: 8;
+width: 52px; height: 52px;
+border: 0; border-radius: 50% 50% 46% 46%;
+background: #e8e2d6;
+box-shadow: 0 3px 12px rgba(79,72,64,0.16);
+color: #4f4840;
+font: 13px/1 ui-monospace, Menlo, monospace;
+cursor: pointer;
+opacity: 0; pointer-events: none;
+transform: scale(0.5);
+transition: opacity 300ms ease, transform 480ms cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+#pouch.on { opacity: 1; pointer-events: auto; transform: scale(1); }
+#pouch:active { transform: scale(0.9, 1.06); }
+body.reading #pouch { opacity: 0; pointer-events: none; }

@@ -85,8 +85,11 @@ export function open(moment, whenClosed) {
 
 export function close() {
   if (!el || !el.classList.contains('open')) return;
+  /* Let it wobble out rather than vanish. */
+  el.classList.add('closing');
   el.classList.remove('open');
   document.body.classList.remove('reading');
+  setTimeout(() => el.classList.remove('closing'), 280);
   const f = onClosed; onClosed = null;
   if (f) setTimeout(f, 260);
 }

@@ -20,19 +20,19 @@ const TAU = Math.PI * 2;
  * is; `soft` rounds it off. A beach is wide and calm, a forest is not. */
 export const REGIONS = [
   {name: 'school',   span: 1500, sky: '#eef1f5', ground: '#dbe2e6', ink: '#4e5a66',
-   roll: 10, soft: 1.0, feature: 'town'},
+   roll: 26, soft: 1.1, feature: 'town'},
   {name: 'vienna',   span: 1500, sky: '#f1ebe2', ground: '#ddd2c1', ink: '#6a5b48',
-   roll: 16, soft: 0.9, feature: 'town'},
+   roll: 34, soft: 1.0, feature: 'town'},
   {name: 'riga',     span: 3400, sky: '#eaf0e6', ground: '#c9d9bd', ink: '#47603c',
-   roll: 22, soft: 0.8, feature: 'park'},
+   roll: 44, soft: 0.9, feature: 'park'},
   {name: 'jurmala',  span: 2200, sky: '#f4efe1', ground: '#ecdcb6', ink: '#8a7340',
-   roll: 12, soft: 1.2, feature: 'dune'},
+   roll: 24, soft: 1.5, feature: 'dune'},
   {name: 'lake',     span: 3000, sky: '#e5ede8', ground: '#c1d4c1', ink: '#365443',
-   roll: 34, soft: 0.6, feature: 'forest'},
+   roll: 70, soft: 0.7, feature: 'forest'},
   {name: 'goodbye',  span: 2400, sky: '#e9e6f0', ground: '#cdc8dd', ink: '#4c4463',
-   roll: 18, soft: 0.9, feature: 'town'},
+   roll: 40, soft: 1.0, feature: 'town'},
   {name: 'now',      span: 2600, sky: '#f3efe8', ground: '#e1d8c8', ink: '#675c4c',
-   roll: 8,  soft: 1.4, feature: 'quiet'},
+   roll: 18, soft: 1.6, feature: 'quiet'},
 ];
 
 
@@ -65,7 +65,11 @@ function shape(x, roll, soft) {
   const a = Math.sin(x / 340) * roll;
   const b = Math.sin(x / 137 + 1.7) * roll * 0.42;
   const c = Math.sin(x / 61 + 3.1) * roll * 0.16 * (1 / soft);
-  return a + b + c;
+  /* Squashing a sine through tanh flattens its peaks and steepens its
+   * shoulders, which turns gentle undulation into ledges and drops — somewhere
+   * to leap up to, and down from. Sines alone only ever give rolling hills. */
+  const d = Math.tanh(Math.sin(x / 205 + 0.6) * 2.8) * roll * 0.85 / soft;
+  return a + b + c + d;
 }
 
 /* Ground height at x. Negative is up — screen coordinates, so the whole engine

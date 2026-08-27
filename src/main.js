@@ -105,18 +105,50 @@ resize();
 /* ---- state ------------------------------------------------------------- */
 
 const slime = {x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, r: 34};
+
+/* Traversal.
+ *
+ * He was pinned to the ground and dragged along it, which is a scrubbing
+ * gesture, not a character. Gravity, a leap and air control turn the same land
+ * into something to move THROUGH. */
+const GRAVITY   = 2100;
+const JUMP      = 720;
+const AIR_CTRL  = 0.42;     // how much a drag steers him mid-air
+const COYOTE    = 0.10;     // grace after walking off an edge
+const BUFFER    = 0.14;     // a leap asked for just before landing still counts
+const MAX_FALL  = 1500;
+
+let grounded = false, coyote = 0, buffered = 0, airborne = 0, lastLanding = 0;
 const cam = {x: 0, y: 0, px: 0, py: 0};
 
 const N = 26;
 const rim = Array.from({length: N}, () => ({o: 0, v: 0, po: 0}));
 
-let pending = 0, pendingY = 0;   // drag not yet consumed by the simulation
+let pending = 0;                 // drag not yet consumed by the simulation
 let clock = 0;
 
 /* ---- the blob ---------------------------------------------------------- */
 
 const MAX_O = 0.34, MAX_RIM_V = 4;
 const DRIVE = 0.00038, MAX_DRIVE = 0.34;
+
+/* A leap. Allowed for a moment after walking off an edge, and remembered for
+ * a moment if asked for just before landing — both are invisible and both are
+ * the difference between a jump that feels responsive and one that feels
+ * broken. */
+function leap() {
+  if (!grounded && coyote <= 0) { buffered = BUFFER; return false; }
+  slime.vy = -JUMP;
+  grounded = false;
+  coyote = 0;
+  airborne = 0.001;
+  /* Stretch on the way up. */
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    rim[i].v += Math.sin(a) * 3.2;
+  }
+  return true;
+}
 
 function stepBlob(h, ax, ay) {
   const K = 150, D = 7, VISC = 9;
@@ -155,31 +187,61 @@ function simulate(h) {
 
   /* The drag is spread across the steps of this frame rather than dumped into
    * one, which is what stops a fast flick from arriving as a spike. */
-  const takeX = pending * 0.35, takeY = pendingY * 0.35;
-  pending -= takeX; pendingY -= takeY;
+  const takeX = pending * 0.35, takeY = 0;
+  pending -= takeX;
 
   const ax = takeX / h, ay = takeY / h;
-  slime.vx += takeX * 9;
-  /* Climbing costs something; going downhill gives it back. Enough to feel
-   * the land, not enough to fight her. */
-  slime.vx *= 1 - Math.max(0, slopeAt(slime.x) * Math.sign(slime.vx)) * 0.12;
-  slime.vy = 0;
+
+  /* Drag steers. On the ground it is most of his speed; in the air it is a
+   * nudge, so a leap commits and cannot be flown. */
+  slime.vx += takeX * 9 * (grounded ? 1 : AIR_CTRL);
+
+  if (grounded) {
+    /* Climbing costs a little, descending gives it back — enough to feel the
+     * land, not enough to fight her. */
+    slime.vx *= 1 - Math.max(0, slopeAt(slime.x) * Math.sign(slime.vx)) * 0.12;
+  }
 
   const MAX_SPEED = 1500;
-  const sp = Math.hypot(slime.vx, slime.vy);
-  if (sp > MAX_SPEED) { slime.vx *= MAX_SPEED / sp; slime.vy *= MAX_SPEED / sp; }
+  const sp = Math.abs(slime.vx);
+  if (sp > MAX_SPEED) slime.vx *= MAX_SPEED / sp;
 
-  const friction = Math.exp(-4 * h);
-  slime.vx *= friction;
+  /* Ground drag is heavy so he settles; air drag is almost nothing so an arc
+   * stays an arc. */
+  slime.vx *= Math.exp(-(grounded ? 4 : 0.5) * h);
+
+  slime.vy = Math.min(MAX_FALL, slime.vy + GRAVITY * h);
 
   slime.px = slime.x; slime.py = slime.y;
-  slime.x += slime.vx * h;
+  slime.x = Math.max(-400, Math.min(WORLD_END + 400, slime.x + slime.vx * h));
+  slime.y += slime.vy * h;
 
-  /* He is held to the land rather than floating over it. Vertical drag is
-   * gone: on a hillside "up" is ambiguous, and letting her lift him off the
-   * ground broke the illusion that this is a place. */
-  slime.x = Math.max(-400, Math.min(WORLD_END + 400, slime.x));
-  slime.y = heightAt(slime.x);
+  /* Land. Screen coordinates, so larger y is lower and the ground is a
+   * ceiling from below. */
+  const g = heightAt(slime.x);
+  coyote = Math.max(0, coyote - h);
+  buffered = Math.max(0, buffered - h);
+
+  if (slime.y >= g) {
+    if (!grounded && airborne > 0.12) {
+      /* Landing shoves the rim: the blob flattens on impact rather than
+       * arriving as a circle. */
+      lastLanding = Math.min(1, slime.vy / 900);
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        rim[i].v -= Math.sin(a) * lastLanding * 5.5;
+      }
+    }
+    slime.y = g;
+    slime.vy = 0;
+    grounded = true;
+    coyote = COYOTE;
+    airborne = 0;
+    if (buffered > 0) { leap(); buffered = 0; }
+  } else {
+    grounded = false;
+    airborne += h;
+  }
 
   stepBlob(h, ax, ay);
 
@@ -192,6 +254,20 @@ function simulate(h) {
 }
 
 /* ---- drawing ----------------------------------------------------------- */
+
+/* Light. He is the brightest thing in a pale world, and the glow is what makes
+ * him read as alive rather than as a shape being moved around. It swells when
+ * he is moving fast and when he is off the ground. */
+function drawGlow(sx, sy, speed, air) {
+  const heat = Math.min(1, speed / 700) * 0.5 + air * 0.5;
+  const r = slime.r * (2.6 + heat * 1.5);
+  const g = ctx.createRadialGradient(sx, sy, slime.r * 0.3, sx, sy, r);
+  g.addColorStop(0, `rgba(120, 214, 184, ${0.30 + heat * 0.22})`);
+  g.addColorStop(0.5, `rgba(120, 214, 184, ${0.10 + heat * 0.08})`);
+  g.addColorStop(1, 'rgba(120, 214, 184, 0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+}
 
 function drawSlime(sx, sy, alpha) {
   const pts = [];
@@ -267,13 +343,42 @@ function render(alpha) {
   ctx.textAlign = 'left';
 
   /* His feet are on the land; his centre is one vertical radius above it. */
-  drawSlime(sx - cx + W / 2, sy2(sy) - slime.r * 0.92, alpha);
+  const hx = sx - cx + W / 2, hy = sy2(sy) - slime.r * 0.92;
+  drawGlow(hx, hy, Math.abs(slime.vx), grounded ? 0 : Math.min(1, airborne * 3));
+  drawSlime(hx, hy, alpha);
+  motes(W, H, cx, cy, sy2);
 
   /* One line, and only when there is something to do. A readout that is
    * always on becomes furniture and stops being read. */
   const atOne = nearest && nearestD < REACH && nearest.moment && !card.isOpen();
   hud.textContent = atOne ? 'tap to read' : '';
   hud.style.opacity = atOne ? '1' : '0';
+}
+
+/* Motes.
+ *
+ * Slow, warm specks drifting through the air. They are the cheapest thing in
+ * the whole renderer and they do more for atmosphere than anything else here:
+ * a still image reads as a diagram, and a few things moving in the air read as
+ * somewhere with weather.
+ *
+ * Positions come from a hash of the index, offset by the camera at a fraction
+ * of its speed, so they have depth without being stored or updated. */
+function motes(W, H, cx, cy, sy2) {
+  const t = clock;
+  for (let i = 0; i < 34; i++) {
+    const depth = 0.25 + (i % 5) * 0.14;
+    const seed = i * 127.3;
+    const span = W + 160;
+    const x = (((Math.sin(seed) * 0.5 + 0.5) * span - cx * depth * 0.5) % span + span) % span - 80;
+    const bob = Math.sin(t * (0.22 + (i % 4) * 0.06) + seed) * 26;
+    const y = (((Math.cos(seed * 1.7) * 0.5 + 0.5) * H * 0.9 - cy * depth * 0.5) % H + H) % H + bob * 0.4;
+    const r = 0.8 + (i % 3) * 0.7;
+    ctx.globalAlpha = 0.10 + depth * 0.22;
+    ctx.fillStyle = '#f5e3b8';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 }
 
 /* Trims a label to the width available, so a long opening line never runs off
@@ -411,9 +516,22 @@ canvas.addEventListener('pointerdown', e => {
 
 canvas.addEventListener('pointermove', e => {
   if (!dragging || e.pointerId !== pid) return;
-  pending += e.clientX - lastX;
-  pendingY += e.clientY - lastY;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  pending += dx;
   lastX = e.clientX; lastY = e.clientY;
+
+  /* A flick upwards leaps. Steeper than it is wide, so running fast never
+   * launches him by accident — the gesture has to actually mean "up". */
+  const now = performance.now();
+  if (dy < -7 && Math.abs(dy) > Math.abs(dx) * 1.4 && now - lastLeapAt > 220) {
+    lastLeapAt = now;
+    leap();
+  }
+});
+let lastLeapAt = 0;
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); leap(); }
 });
 
 /* Every plausible end of a press releases: a lost pointerup is routine on a

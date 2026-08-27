@@ -137,7 +137,33 @@ No build step, no framework, no dependencies. Plain HTML, CSS and ES modules.
 
 ## How it moves
 
-Three things, all load-bearing:
+**Traversal is the point.** He was pinned to the ground and scrubbed along it,
+which is a gesture, not a character. Now:
+
+- **Gravity and a leap.** Flick upwards to jump (Space on a keyboard). ~120px
+  of rise, real arc, real air time.
+- **Coyote time** (0.10s) — a leap still works just after walking off an edge.
+- **Jump buffering** (0.14s) — a leap asked for just before landing is
+  remembered rather than dropped. Both are invisible and both are the
+  difference between responsive and broken.
+- **Air control at 42%** — a leap commits and cannot be flown.
+- Ground drag is heavy so he settles; air drag is almost nothing so an arc
+  stays an arc.
+- **Landing shoves the rim springs**, so he flattens on impact instead of
+  arriving as a circle.
+
+The land is built to be leapt over: squashing a sine through `tanh` flattens
+its peaks and steepens its shoulders, turning rolling hills into ledges and
+drops. Sines alone only ever give undulation.
+
+**Light.** He glows, and the glow swells with speed and with being airborne —
+it is what makes him read as alive rather than as a shape being moved. Warm
+motes drift through the air, positioned from a hash of their index and offset
+by the camera at a fraction of its speed, so they have depth without being
+stored or updated. They are the cheapest thing in the renderer and do more for
+atmosphere than anything else in it.
+
+Three further things, all load-bearing:
 
 1. **Fixed simulation step** (1/120). Physics never sees a variable `dt`, so a
    spring behaves identically at 60Hz and 120Hz.
@@ -244,9 +270,11 @@ and security, verified.
   she opens it, the creature sleeping where she left him, and his local time
   shown so she can see he is awake. She is alone in Latvia; after eighteen
   things the app currently just stops, which is a small abandonment.
-- Adventure work in progress: verticality and side paths, findable objects from
-  the real story (the crocheted charm, the flower bracelet, the McQueen Lego,
-  the brownies), a map screen
+- Adventure, still to do: **side paths and branching routes** (moments that can
+  be missed and come back for), **findable objects from the real story** (the
+  crocheted charm, the flower bracelet, the McQueen Lego, the brownies), a
+  **map screen**, and **deeper parallax with mist** for Ori-like depth. The
+  movement and the land are done; the world is not yet branching.
 - Sign-in, the postbox, photo storage — all need `backend.js` wiring
 - GitHub is not connected to Vercel; deploys are manual
 

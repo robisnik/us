@@ -18,33 +18,33 @@ const TAU = Math.PI * 2;
 /* `at` is a fraction along the world; `lift` is how far above the ground it
  * floats, in pixels.
  *
- * With free movement there is no jump ceiling to respect, so these can sit
- * genuinely high — high enough that she has to notice one and choose to go up
- * for it. Nothing is unreachable; everything costs a detour. */
+ * The tether gives 150px free and 110px more against a rising pull, so 260 is
+ * the ceiling and nothing sits above 230. The high ones genuinely have to be
+ * stretched for; none of them is unreachable. */
 export const FINDS = [
-  {id: 'pancakes', name: 'cottage cheese pancakes', at: 0.20, lift: 150,
+  {id: 'pancakes', name: 'cottage cheese pancakes', at: 0.20, lift: 140,
    note: 'You showed up with these out of nowhere.'},
-  {id: 'kebab', name: 'the kebab', at: 0.26, lift: 72,
+  {id: 'kebab', name: 'the kebab', at: 0.26, lift: 70,
    note: 'Such a German story.'},
-  {id: 'sweets', name: 'sweets from Sweden', at: 0.33, lift: 210,
+  {id: 'sweets', name: 'sweets from Sweden', at: 0.33, lift: 225,
    note: 'A week away and you still came back with these.'},
-  {id: 'bracelet', name: 'the flower bracelet', at: 0.42, lift: 176,
+  {id: 'bracelet', name: 'the flower bracelet', at: 0.42, lift: 196,
    note: 'I brought it back from Helsinki for you.'},
-  {id: 'charm', name: 'the crocheted charm', at: 0.47, lift: 176,
+  {id: 'charm', name: 'the crocheted charm', at: 0.47, lift: 196,
    note: 'You made it. It still hangs on my bag.'},
-  {id: 'shell', name: 'a shell from Jūrmala', at: 0.55, lift: 60,
+  {id: 'shell', name: 'a shell from Jūrmala', at: 0.55, lift: 58,
    note: 'A whole day of doing next to nothing.'},
-  {id: 'lego', name: 'the McQueen Lego', at: 0.60, lift: 195,
+  {id: 'lego', name: 'the McQueen Lego', at: 0.60, lift: 205,
    note: 'My birthday. You knew exactly what to get.'},
-  {id: 'brownies', name: 'the brownies', at: 0.66, lift: 130,
+  {id: 'brownies', name: 'the brownies', at: 0.66, lift: 128,
    note: 'We baked them before Poland. Your family loved them too.'},
-  {id: 'souvenir', name: 'a souvenir from Poland', at: 0.70, lift: 240,
+  {id: 'souvenir', name: 'a souvenir from Poland', at: 0.70, lift: 230,
    note: 'You opened them like a child on Christmas morning.'},
-  {id: 'keys', name: 'the car keys', at: 0.74, lift: 165,
+  {id: 'keys', name: 'the car keys', at: 0.74, lift: 170,
    note: 'You were so thrilled for me.'},
-  {id: 'wine', name: 'the wine', at: 0.86, lift: 195,
+  {id: 'wine', name: 'the wine', at: 0.86, lift: 205,
    note: 'The last two nights. Sun, wine, laughing.'},
-  {id: 'ticket', name: 'the boarding pass', at: 0.93, lift: 110,
+  {id: 'ticket', name: 'the boarding pass', at: 0.93, lift: 108,
    note: 'And then it was time to say goodbye.'},
 ];
 

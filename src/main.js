@@ -159,7 +159,25 @@ const slime = {x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, r: 34};
  * The ground is still a floor: he cannot sink into the land, which keeps the
  * landscape readable as landscape.
  */
-const CEILING = -560;       // how high the sky lets him drift
+/* He is a slime, not a bird.
+ *
+ * Removing gravity left him able to drift into blank sky, which is not a
+ * world — it is a void with an arbitrary lid. What holds him instead is a
+ * TETHER to the ground: free movement up to REACH, and past that the land
+ * pulls back harder the further he stretches, until he simply cannot go any
+ * higher.
+ *
+ * That is the logic of the thing. He can climb a slope, get over a ledge and
+ * stretch up for something above him. He cannot leave. And because the pull
+ * is a curve rather than a wall, hitting the limit feels like the top of a
+ * stretch instead of bumping into an invisible ceiling.
+ *
+ * Interiors will lift the tether — inside a building the floors are what
+ * bound him, so it will be measured from the floor he stands over instead.
+ */
+const LIFT_FREE = 150;      // free vertical room above the ground
+const LIFT_MAX  = 110;      // how much further he can force it, against the pull
+const TETHER_K  = 9;        // how hard the land pulls him back past LIFT_FREE
 
 let grounded = false;
 const cam = {x: 0, y: 0, px: 0, py: 0};
@@ -248,7 +266,18 @@ function simulate(h) {
   } else {
     grounded = slime.y > g - 3;
   }
-  if (slime.y < CEILING) { slime.y = CEILING; slime.vy = Math.max(0, slime.vy); }
+
+  /* The tether. Nothing happens within REACH; past it the pull grows with how
+   * far he has stretched, and STRETCH is where it becomes immovable. */
+  const up = g - slime.y;
+  if (up > LIFT_FREE) {
+    const over = (up - LIFT_FREE) / LIFT_MAX;
+    slime.vy += over * over * TETHER_K * 60 * h;
+    if (up > LIFT_FREE + LIFT_MAX) {
+      slime.y = g - LIFT_FREE - LIFT_MAX;
+      slime.vy = Math.max(slime.vy, 0);
+    }
+  }
 
   stepBlob(h, ax, ay);
 
@@ -734,7 +763,7 @@ if (['localhost', '127.0.0.1'].includes(location.hostname)) {
     get placed() { return placed; },
     get finds() { return findsPlaced; },
     get nodes() { return nodes; },
-    tend, HOME_X,
+    tend, HOME_X, heightAt, LIFT_FREE, LIFT_MAX,
     home: () => { slime.x = HOME_X - 90; slime.y = heightAt(slime.x); slime.vx = slime.vy = 0;
                   cam.x = cam.px = slime.x; cam.y = cam.py = slime.y; },
     give: (k, n) => { tend.take(k, n); },

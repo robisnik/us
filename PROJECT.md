@@ -137,8 +137,23 @@ No build step, no framework, no dependencies. Plain HTML, CSS and ES modules.
 
 ## How it moves
 
-**No gravity — free movement in both axes.** Drag steers him anywhere; the
-land is a floor he cannot sink through, and there is a ceiling at −560.
+**No gravity — but he is tethered.** Drag steers him in both axes; the land is
+a floor he cannot sink through.
+
+Removing gravity first left him able to drift into blank sky against an
+arbitrary lid, which is a void with a limit rather than a world. What holds him
+now is a **tether to the ground**: free movement up to **150px**, then a pull
+that grows with the square of how far he has stretched, becoming immovable at
+**260px**. He can climb a slope, clear a ledge and stretch up for something
+above him. He cannot leave. Because the pull is a curve rather than a wall,
+the limit feels like the top of a stretch rather than an invisible ceiling.
+
+Measured: shoved as hard as the input allows, he peaks at exactly 260 and eases
+back. Nothing in the world is placed above 230, and all twelve finds were
+verified reachable by standing under each and stretching.
+
+Interiors will lift the tether — inside a building the floors are what bound
+him, measured from the floor he stands over.
 
 There *was* gravity, a leap, coyote time and jump buffering, and it felt good.
 It was removed deliberately: **platforming and architecture pull in opposite

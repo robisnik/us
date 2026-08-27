@@ -141,3 +141,45 @@ body.reading canvas { pointer-events: none; }
    they are meant to be read down, not across. */
 .card-list p { margin: 0 0 0.42em; }
 .card-list p:last-child { margin-bottom: 1em; }
+
+/* ------------------------------------------------------------- the opening */
+
+#intro {
+position: fixed;
+inset: 0;
+z-index: 20;
+display: flex;
+align-items: center;
+justify-content: center;
+padding: 32px;
+background: #f4f4f0;
+text-align: center;
+transition: opacity 700ms ease;
+}
+#intro[hidden] { display: none; }
+#intro.going { opacity: 0; pointer-events: none; }
+
+.intro-inner { max-width: 30ch; }
+
+#intro-title {
+margin: 0 0 22px;
+font: 400 34px/1.1 ui-serif, Georgia, 'Iowan Old Style', serif;
+color: #4f4840;
+}
+#intro-body p {
+margin: 0 0 12px;
+font: 17px/1.6 ui-serif, Georgia, 'Iowan Old Style', serif;
+color: #4f4840;
+}
+.intro-go {
+margin: 34px 0 0;
+font: 11px/1 ui-monospace, Menlo, monospace;
+letter-spacing: 0.22em;
+color: #958c80;
+animation: breathe 2.6s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100% { opacity: 0.4 } 50% { opacity: 1 } }
+
+@media (prefers-reduced-motion: reduce) {
+.intro-go { animation: none; opacity: 0.7 }
+}

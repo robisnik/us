@@ -1,4 +1,8 @@
 {
+ "intro": {
+  "title": "Pookie",
+  "body": "Happy eighteenth.\nI made you somewhere to walk. Everything here is ours.\nDrag him along, and tap whatever you find."
+ },
  "moments": [
   {
    "station": "photo",
@@ -214,7 +218,7 @@
    "auto_title": true,
    "when": "the last night",
    "photo": null,
-   "body": "We had our last dinner in Latvia together with my grandmother at 32th augusta restorāns, and the next morning Andzelina drove us to the airport. You cried, we hugged and kissed, and then it was time to say goodbye."
+   "body": "We had our last dinner in Latvia together with my grandmother at 32. Augusts restaurant, and the next morning Andzelina drove us to the airport. You cried, we hugged and kissed, and then it was time to say goodbye."
   },
   {
    "station": "cups",

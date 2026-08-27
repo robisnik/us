@@ -42,10 +42,13 @@ TAG = re.compile(r"\[([a-z]+)(?:\s*:\s*([^\]]*))?\]", re.I)
 
 
 def parse(text):
+    """Returns (intro, moments). An [intro] block is what she sees before the
+    world — it belongs to nobody's station."""
     # Strip the instructions block if he left it in — it starts the file and
     # ends at the first line that is not part of it.
     blocks = [b.strip() for b in re.split(r"\n\s*\n", text) if b.strip()]
     moments = []
+    intro = None
 
     for block in blocks:
         kinds, when, photo, title = [], None, None, None
@@ -61,6 +64,8 @@ def parse(text):
             elif name == "photo" and val:
                 photo = val
                 kinds.append("photo")
+            elif name == "intro":
+                kinds.append("intro")
             elif name in KIND:
                 kinds.append(name)
             else:
@@ -73,8 +78,15 @@ def parse(text):
         body = TAG.sub(take, block).strip()
         body = re.sub(r"[ \t]+\n", "\n", body)
         body = re.sub(r"\n{3,}", "\n\n", body)
+        # The intro is three short lines on a title screen, not prose — its
+        # breaks are deliberate, so it skips the unwrapping.
+        raw = body
         body = unwrap(body)
         if not body and not photo:
+            continue
+
+        if "intro" in kinds:
+            intro = {"title": title or "", "body": raw}
             continue
 
         station = KIND.get(kinds[0], "photo") if kinds else ("photo" if photo else "letter")
@@ -89,7 +101,7 @@ def parse(text):
             "photo": resolve(photo),
             "body": body,
         })
-    return moments
+    return intro, moments
 
 
 LIST_ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*\u2022])\s")
@@ -136,11 +148,12 @@ def resolve(name):
 def main():
     if not SRC.exists():
         sys.exit(f"nothing at {SRC.relative_to(ROOT)}")
-    moments = parse(SRC.read_text())
+    intro, moments = parse(SRC.read_text())
     if not moments:
         sys.exit("no moments found — is the file still just the instructions?")
 
-    OUT.write_text(json.dumps({"moments": moments}, indent=1, ensure_ascii=False) + "\n")
+    OUT.write_text(json.dumps({"intro": intro, "moments": moments},
+                              indent=1, ensure_ascii=False) + "\n")
 
     counts = {}
     for m in moments:

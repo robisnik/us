@@ -37,11 +37,34 @@ let placed = STATIONS.map((st, i) => ({
 
 const byName = Object.fromEntries(STATIONS.map(s => [s.name, s]));
 
+/* The opening. It is dismissed by a tap anywhere, and the tap that dismisses
+ * it does nothing else — landing in the world and immediately walking because
+ * the same touch was still counted would feel like a slip. */
+function showIntro({title, body}) {
+  const el = document.getElementById('intro');
+  document.getElementById('intro-title').textContent = title || '';
+  const b = document.getElementById('intro-body');
+  b.innerHTML = '';
+  for (const line of String(body || '').split('\n')) {
+    if (!line.trim()) continue;
+    const p = document.createElement('p');
+    p.textContent = line.trim();
+    b.append(p);
+  }
+  el.hidden = false;
+  const go = () => {
+    el.classList.add('going');
+    setTimeout(() => { el.hidden = true; }, 750);
+  };
+  el.addEventListener('pointerup', go, {once: true});
+}
+
 async function loadStory() {
   try {
     const r = await fetch('content/story/story.json', {cache: 'no-cache'});
     if (!r.ok) return;
-    const {moments} = await r.json();
+    const {moments, intro} = await r.json();
+    if (intro) showIntro(intro);
     if (!Array.isArray(moments) || !moments.length) return;
     placed = moments.map((m, i) => ({
       x: FIRST + i * SPACING,

@@ -1,3 +1,8 @@
+[intro] [title: Pookie]
+Happy eighteenth.
+I made you somewhere to walk. Everything here is ours.
+Drag him along, and tap whatever you find.
+
 [when: 6 september] [photo]
 On the 6th of September, we added each other on Snapchat, and for a long time
 I had no idea who you actually were.
@@ -113,8 +118,8 @@ You helped me pack for my flight and spent my last two nights with me, lying
 in the sun, drinking wine, and laughing.
 
 [when: the last night] [hourglass]
-We had our last dinner in Latvia together with my grandmother at 32th augusta
-restorāns, and the next morning Andzelina drove us to the airport. You cried,
+We had our last dinner in Latvia together with my grandmother at 32. Augusts
+restaurant, and the next morning Andzelina drove us to the airport. You cried,
 we hugged and kissed, and then it was time to say goodbye.
 
 [cups]

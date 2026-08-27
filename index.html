@@ -7,6 +7,7 @@
 
 <meta name="theme-color" content="#f4f4f0">
 <meta name="color-scheme" content="light">
+<meta name="robots" content="noindex, nofollow">
 <link rel="manifest" href="manifest.webmanifest">
 
 <!-- iOS home-screen install. Safari ignores the manifest for most of this and
@@ -23,6 +24,16 @@
 <body>
 <canvas id="c"></canvas>
 <div id="hud"></div>
+
+<!-- The opening. Present in the markup rather than built in JS so it paints
+     on the very first frame — she should never see a bare canvas first. -->
+<div id="intro" hidden>
+  <div class="intro-inner">
+    <h1 id="intro-title"></h1>
+    <div id="intro-body"></div>
+    <p class="intro-go">tap to begin</p>
+  </div>
+</div>
 <script type="module" src="src/main.js"></script>
 <script>
   /* Registered only where it can do no harm: on a real origin, or locally with

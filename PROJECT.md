@@ -245,6 +245,42 @@ slowly than the walk, so cresting a hill reveals what is beyond it.
 
 ---
 
+## The design layer (Python)
+
+    design/economy.py     resources, production rates, caps, growth stages
+    design/buildtree.py   14 builds across 5 tiers, costs, and his line on each
+    design/flora.py       plant species as descriptions, not drawings
+    design/simulate.py    plays 400 imaginary players for 90 days
+    design/emit.py        -> content/world.json
+
+    python3 design/emit.py        regenerate the world
+    python3 design/simulate.py    check the pacing
+
+**Python is not in the game loop, on purpose.** 120 simulation steps and 60
+renders a second would each cross the JS↔Python bridge, and Pyodide is 6–11 MB
+against a 160 KB app with 2–4 seconds of cold start. It would make the one
+thing that matters — smoothness — measurably worse.
+
+Where it earns its place is here. The runtime holds **no opinions about
+numbers**: everything comes from `world.json`, so tuning is a Python edit and a
+re-run. A new plant species is six lines in `flora.py` and no new artwork,
+because the renderer builds it from the description.
+
+And the balance can be **simulated before she plays it**. `simulate.py` models
+how she actually plays — a couple of short visits most days, an occasional
+gathering trip, some days nothing — and reports when each build lands.
+
+That found a problem no amount of staring at the numbers would have:
+**everything produced while she was away (water, seeds) was spent on the
+garden, while everything the house needed (wood, stone) could only come from
+walking out.** So the late game moved only as fast as she travelled. An idle
+game whose idle output cannot progress the main thing is a chore with a timer
+on it. The woodpile and quarry exist because of that run.
+
+Current shape: path on day 4, the garden by day 13, shelter by day 30, and the
+whole house finished around **day 42** by everyone — leaving room in a
+nine-month separation for what comes after.
+
 ## Backend
 
 Applied and verified. **Not yet wired into the app** — `backend.js` is imported

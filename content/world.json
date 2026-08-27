@@ -1,0 +1,412 @@
+{
+ "resources": {
+  "water": {
+   "name": "water",
+   "colour": "#7fb4c4",
+   "where": "at the bottom of hollows"
+  },
+  "wood": {
+   "name": "wood",
+   "colour": "#8a6a4c",
+   "where": "on the ledges"
+  },
+  "seed": {
+   "name": "seeds",
+   "colour": "#6f9455",
+   "where": "on the ledges"
+  },
+  "stone": {
+   "name": "stone",
+   "colour": "#a9a094",
+   "where": "at the bottom of hollows"
+  },
+  "flower": {
+   "name": "flowers",
+   "colour": "#dd8b95",
+   "where": "from the garden"
+  },
+  "herb": {
+   "name": "herbs",
+   "colour": "#7f9c68",
+   "where": "from the garden"
+  }
+ },
+ "produces": {
+  "well": {
+   "gives": "water",
+   "every": 2.0,
+   "cap": 8
+  },
+  "bed": {
+   "gives": "seed",
+   "every": 5.0,
+   "cap": 6
+  },
+  "herbs": {
+   "gives": "herb",
+   "every": 4.0,
+   "cap": 5
+  },
+  "woodpile": {
+   "gives": "wood",
+   "every": 6.0,
+   "cap": 5
+  },
+  "quarry": {
+   "gives": "stone",
+   "every": 7.0,
+   "cap": 4
+  }
+ },
+ "stages": [
+  {
+   "at": 0,
+   "name": "planted"
+  },
+  {
+   "at": 3,
+   "name": "sprouting"
+  },
+  {
+   "at": 10,
+   "name": "growing"
+  },
+  {
+   "at": 24,
+   "name": "in leaf"
+  },
+  {
+   "at": 44,
+   "name": "flowering"
+  }
+ ],
+ "waterGain": 6.0,
+ "nodeRegrow": 5.0,
+ "harvest": {
+  "gives": {
+   "flower": 2
+  },
+  "resetsTo": 1
+ },
+ "tiers": [
+  {
+   "id": "ground",
+   "name": "the ground",
+   "needs": null
+  },
+  {
+   "id": "garden",
+   "name": "the garden",
+   "needs": "ground"
+  },
+  {
+   "id": "shelter",
+   "name": "shelter",
+   "needs": "garden"
+  },
+  {
+   "id": "home",
+   "name": "a home",
+   "needs": "shelter"
+  },
+  {
+   "id": "ours",
+   "name": "ours",
+   "needs": "home"
+  }
+ ],
+ "builds": [
+  {
+   "id": "path",
+   "tier": "ground",
+   "name": "a path",
+   "cost": {
+    "stone": 3
+   },
+   "note": "so the way to the door gets worn in",
+   "unlocks": null
+  },
+  {
+   "id": "fence",
+   "tier": "ground",
+   "name": "a fence",
+   "cost": {
+    "wood": 4
+   },
+   "note": "a line that says this bit is ours",
+   "unlocks": null
+  },
+  {
+   "id": "bed",
+   "tier": "garden",
+   "name": "a garden bed",
+   "cost": {
+    "wood": 5,
+    "stone": 2
+   },
+   "note": "somewhere for things to start",
+   "unlocks": null
+  },
+  {
+   "id": "well",
+   "tier": "garden",
+   "name": "a well",
+   "cost": {
+    "stone": 6
+   },
+   "note": "so the water is always here",
+   "unlocks": null
+  },
+  {
+   "id": "herbs",
+   "tier": "garden",
+   "name": "a herb patch",
+   "cost": {
+    "seed": 3,
+    "wood": 3
+   },
+   "note": "for the cooking you keep promising to teach me",
+   "unlocks": null
+  },
+  {
+   "id": "woodpile",
+   "tier": "garden",
+   "name": "a woodpile",
+   "cost": {
+    "wood": 4,
+    "stone": 1
+   },
+   "note": "so there is always something to build with",
+   "unlocks": null
+  },
+  {
+   "id": "walls",
+   "tier": "shelter",
+   "name": "walls",
+   "cost": {
+    "wood": 16,
+    "stone": 9
+   },
+   "note": "the beginning of somewhere indoors",
+   "unlocks": null
+  },
+  {
+   "id": "quarry",
+   "tier": "shelter",
+   "name": "a quarry",
+   "cost": {
+    "wood": 9,
+    "stone": 6
+   },
+   "note": "the slow way to build anything, which is the only way we have",
+   "unlocks": null
+  },
+  {
+   "id": "roof",
+   "tier": "shelter",
+   "name": "a roof",
+   "cost": {
+    "wood": 20,
+    "stone": 8
+   },
+   "note": "and then it is a house",
+   "unlocks": "letters arrive here"
+  },
+  {
+   "id": "window",
+   "tier": "home",
+   "name": "a window",
+   "cost": {
+    "stone": 10,
+    "wood": 7
+   },
+   "note": "so there is a light on when you get back",
+   "unlocks": "the light is on at your dusk"
+  },
+  {
+   "id": "hearth",
+   "tier": "home",
+   "name": "a hearth",
+   "cost": {
+    "stone": 16,
+    "wood": 11
+   },
+   "note": "somewhere to be cold next to and then not be cold",
+   "unlocks": null
+  },
+  {
+   "id": "bench",
+   "tier": "ours",
+   "name": "a bench",
+   "cost": {
+    "wood": 12,
+    "stone": 6
+   },
+   "note": "somewhere to sit and do nothing, which we were always good at",
+   "unlocks": null
+  },
+  {
+   "id": "shelf",
+   "tier": "ours",
+   "name": "a shelf",
+   "cost": {
+    "wood": 14,
+    "herb": 2
+   },
+   "note": "for everything you found on the way here",
+   "unlocks": "the things you found are kept here"
+  },
+  {
+   "id": "bed2",
+   "tier": "ours",
+   "name": "a bed",
+   "cost": {
+    "wood": 18,
+    "herb": 4,
+    "flower": 6
+   },
+   "note": "and that is the whole house, and you are in it",
+   "unlocks": null
+  }
+ ],
+ "flora": [
+  {
+   "id": "poppy",
+   "name": "poppies",
+   "stem": [
+    44,
+    7,
+    1.8
+   ],
+   "leaves": [
+    2,
+    0.42,
+    0.22,
+    9,
+    0.5
+   ],
+   "bloom": {
+    "kind": "petals",
+    "n": 5,
+    "size": 7,
+    "a": "#dd8b95",
+    "b": "#e9a34f"
+   }
+  },
+  {
+   "id": "clover",
+   "name": "clover",
+   "stem": [
+    24,
+    3,
+    1.5
+   ],
+   "leaves": [
+    3,
+    0.35,
+    0.2,
+    7,
+    0.7
+   ],
+   "bloom": {
+    "kind": "puff",
+    "n": 9,
+    "size": 5,
+    "a": "#e6dcea",
+    "b": "#c9b6d4"
+   }
+  },
+  {
+   "id": "cornflower",
+   "name": "cornflowers",
+   "stem": [
+    52,
+    10,
+    1.6
+   ],
+   "leaves": [
+    2,
+    0.5,
+    0.25,
+    11,
+    0.35
+   ],
+   "bloom": {
+    "kind": "petals",
+    "n": 7,
+    "size": 6,
+    "a": "#8fa8d8",
+    "b": "#6f86bd"
+   }
+  },
+  {
+   "id": "chamomile",
+   "name": "chamomile",
+   "stem": [
+    36,
+    6,
+    1.4
+   ],
+   "leaves": [
+    3,
+    0.3,
+    0.2,
+    6,
+    0.6
+   ],
+   "bloom": {
+    "kind": "daisy",
+    "n": 8,
+    "size": 6,
+    "a": "#faf7f0",
+    "b": "#e9c14f"
+   }
+  },
+  {
+   "id": "wheat",
+   "name": "wheat",
+   "stem": [
+    56,
+    4,
+    1.6
+   ],
+   "leaves": [
+    2,
+    0.55,
+    0.2,
+    13,
+    0.2
+   ],
+   "bloom": {
+    "kind": "ear",
+    "n": 6,
+    "size": 5,
+    "a": "#dcc189",
+    "b": "#c2a469"
+   }
+  },
+  {
+   "id": "lavender",
+   "name": "lavender",
+   "stem": [
+    48,
+    8,
+    1.4
+   ],
+   "leaves": [
+    2,
+    0.45,
+    0.22,
+    8,
+    0.3
+   ],
+   "bloom": {
+    "kind": "spike",
+    "n": 7,
+    "size": 4,
+    "a": "#b3a2d4",
+    "b": "#8d79b5"
+   }
+  }
+ ]
+}

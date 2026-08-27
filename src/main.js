@@ -107,7 +107,10 @@ function welcomeBack() {
              : `in the ${Math.round(away.hours / 24)} days you were away`;
   setTimeout(() => say(`${when}: ${bits.join(', ')}`), 900);
 }
-welcomeBack();
+/* The world is loaded before anything asks it a question. Everything before
+ * this point uses fallbacks that exist only so a failed fetch cannot leave a
+ * blank screen on her birthday. */
+tend.loadWorld().then(() => welcomeBack());
 
 /* The opening. It is dismissed by a tap anywhere, and the tap that dismisses
  * it does nothing else — landing in the world and immediately walking because

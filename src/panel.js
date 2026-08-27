@@ -32,6 +32,17 @@ function build() {
   addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 }
 
+/* What was just built, said properly rather than as a toast — she made this,
+ * and he wrote her a line about it. */
+function said(title, note) {
+  const box = document.createElement('div');
+  box.className = 'built-said';
+  box.innerHTML = `<p class="built-what">${title}</p><p class="built-note">${note}</p>`;
+  document.body.append(box);
+  requestAnimationFrame(() => box.classList.add('on'));
+  setTimeout(() => { box.classList.remove('on'); setTimeout(() => box.remove(), 700); }, 4200);
+}
+
 export function open(changed, atHome = true) {
   if (!el) build();
   onChange = changed || null;
@@ -82,22 +93,30 @@ function render() {
     .map(id => ({id, n: tend.waiting(id), p: tend.PRODUCES[id]}));
   const anyReady = prod.some(x => x.n > 0);
   const pr = el.querySelector('.panel-prod');
-  if (prod.length) {
-    pr.innerHTML = '<p class="panel-label">waiting for you</p><ul>'
-      + prod.map(({id, n, p}) => `<li><span>${n
-          ? `${n} ${tend.RESOURCES[p.gives].name}`
-          : `nothing yet — ${tend.RESOURCES[p.gives].name} every ${p.every}h`}</span>`
-        + (n ? `<button data-take="${id}">take</button>` : '') + '</li>').join('')
-      + '</ul>'
-      + (anyReady ? '<button class="panel-do" data-takeall="1">take everything</button>' : '');
-  } else {
+  if (!prod.length) {
     pr.innerHTML = '';
+  } else if (!anyReady) {
+    /* One quiet line rather than a column of "nothing yet". A list that is
+     * mostly empty trains her to stop reading it. */
+    const next = prod
+      .map(({p}) => `${tend.RESOURCES[p.gives].name} every ${p.every}h`)
+      .join(', ');
+    pr.innerHTML = `<p class="panel-label">making</p><p class="panel-empty">${next}</p>`;
+  } else {
+    const ready = prod.filter(x => x.n > 0);
+    pr.innerHTML = '<p class="panel-label">waiting for you</p><ul>'
+      + ready.map(({id, n, p}) =>
+          `<li><span>${n} ${tend.RESOURCES[p.gives].name}</span>`
+          + `<button data-take="${id}">take</button></li>`).join('')
+      + '</ul>'
+      + (ready.length > 1
+          ? '<button class="panel-do" data-takeall="1">take everything</button>' : '');
   }
 
   /* Plots */
   const plots = tend.plots();
   const pl = el.querySelector('.panel-plots');
-  let html = '<p class="panel-label">the garden</p>';
+  let html = '<p class="panel-label">growing</p>';
   if (!plots.length) {
     html += '<p class="panel-empty">Nothing planted yet.</p>';
   } else {
@@ -107,8 +126,10 @@ function render() {
       const stage = tend.STAGES[s].name;
       const next = tend.nextChange(p);
       const canWater = (inv.water || 0) > 0 && s < tend.STAGES.length - 1;
+      const ripe = tend.canHarvest(i);
       html += `<li><span>${stage}${next ? ` — ${next}` : ''}</span>`
-            + (canWater ? `<button data-water="${i}">water</button>` : '') + '</li>';
+            + (ripe ? `<button data-pick="${i}">pick</button>`
+                    : canWater ? `<button data-water="${i}">water</button>` : '') + '</li>';
     });
     html += '</ul>';
   }
@@ -117,22 +138,45 @@ function render() {
     : '<p class="panel-empty">Find a seed in the parks to plant something.</p>';
   pl.innerHTML = html;
 
-  /* Builds */
+  /* Builds, grouped by tier.
+   *
+   * A locked tier is shown rather than hidden, with what it is waiting for.
+   * Hiding it would make the homestead look finished when it is not, and the
+   * next thing to want is most of the reason to come back. */
   const bl = el.querySelector('.panel-builds');
-  let bh = '<p class="panel-label">building</p><ul class="panel-builds-list">';
-  for (const b of tend.BUILDS) {
-    const done = tend.built().includes(b.id);
-    const can = tend.has(b.cost);
-    const cost = Object.entries(b.cost)
-      .map(([k, n]) => `${n} ${tend.RESOURCES[k].name}`).join(', ');
-    bh += `<li class="${done ? 'done' : can ? 'can' : 'cant'}">
-        <div><strong>${b.name}</strong><em>${b.note}</em></div>
-        ${done ? '<span class="tick">built</span>'
-               : can ? `<button data-build="${b.id}">build</button>`
-                     : `<span class="cost">${cost}</span>`}
-      </li>`;
+  let bh = '';
+  for (const t of tend.TIERS) {
+    const items = tend.BUILDS.filter(b => b.tier === t.id);
+    if (!items.length) continue;
+    const open = tend.tierOpen(t.id);
+    const doneCount = items.filter(b => tend.built().includes(b.id)).length;
+
+    bh += `<p class="panel-label">${t.name}`
+        + (doneCount === items.length ? ' · done' : ` · ${doneCount}/${items.length}`)
+        + '</p>';
+
+    if (!open) {
+      const prev = tend.TIERS.find(x => x.id === t.needs);
+      bh += `<p class="panel-empty">After ${prev ? prev.name : 'the rest'}.</p>`;
+      continue;
+    }
+
+    bh += '<ul class="panel-builds-list">';
+    for (const b of items) {
+      const done = tend.built().includes(b.id);
+      const can = tend.has(b.cost);
+      const cost = Object.entries(b.cost)
+        .map(([k, n]) => `${n} ${tend.RESOURCES[k]?.name ?? k}`).join(', ');
+      bh += `<li class="${done ? 'done' : can ? 'can' : 'cant'}">
+          <div><strong>${b.name}</strong>${done ? `<em>${b.note}</em>` : ''}</div>
+          ${done ? '<span class="tick">built</span>'
+                 : can ? `<button data-build="${b.id}">build</button>`
+                       : `<span class="cost">${cost}</span>`}
+        </li>`;
+    }
+    bh += '</ul>';
   }
-  bl.innerHTML = bh + '</ul>';
+  bl.innerHTML = bh;
 
   el.querySelectorAll('[data-take]').forEach(b =>
     b.addEventListener('click', () => { tend.collect(b.dataset.take); render(); onChange?.(); }));
@@ -142,6 +186,17 @@ function render() {
     b.addEventListener('click', () => { if (tend.plant()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-water]').forEach(b =>
     b.addEventListener('click', () => { if (tend.water(+b.dataset.water)) { render(); onChange?.(); } }));
+  el.querySelectorAll('[data-pick]').forEach(b =>
+    b.addEventListener('click', () => { if (tend.harvest(+b.dataset.pick)) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-build]').forEach(b =>
-    b.addEventListener('click', () => { if (tend.build(b.dataset.build)) { render(); onChange?.(); } }));
+    b.addEventListener('click', () => {
+      const info = tend.BUILDS.find(x => x.id === b.dataset.build);
+      if (tend.build(b.dataset.build)) {
+        render();
+        onChange?.();
+        /* His line, the moment it is finished. The building is the delivery
+         * mechanism for the writing — that is the point of the mechanic. */
+        if (info?.note) said(info.name, info.note);
+      }
+    }));
 }

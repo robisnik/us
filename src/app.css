@@ -338,3 +338,31 @@ transition: opacity 300ms ease, transform 480ms cubic-bezier(0.22, 1.4, 0.36, 1)
 #pouch.on { opacity: 1; pointer-events: auto; transform: scale(1); }
 #pouch:active { transform: scale(0.9, 1.06); }
 body.reading #pouch { opacity: 0; pointer-events: none; }
+
+/* What she just built, and what he said about it. */
+.built-said {
+position: fixed; left: 50%; top: 34%;
+transform: translate(-50%, -50%) scale(0.7) rotate(-2deg);
+z-index: 30;
+width: min(320px, 82vw);
+padding: 20px 22px;
+background: #faf7f0;
+border-radius: 16px;
+box-shadow: 0 12px 40px rgba(79,72,64,0.22);
+text-align: center;
+opacity: 0;
+pointer-events: none;
+transition: opacity 420ms ease;
+}
+.built-said.on {
+opacity: 1;
+animation: wobble-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.built-what {
+margin: 0 0 8px;
+font: 400 17px/1.2 ui-serif, Georgia, serif; color: #4f4840;
+}
+.built-note {
+margin: 0;
+font: italic 14px/1.5 ui-serif, Georgia, serif; color: #6f675d;
+}

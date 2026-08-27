@@ -21,45 +21,57 @@ const HOUR = 3600e3;
 
 /* What the land gives, and where. Tied to the regions of their story, so
  * gathering is also travelling. */
-export const RESOURCES = {
-  water: {name: 'water', from: 'lake',    colour: '#7fb4c4'},
-  wood:  {name: 'wood',  from: 'lake',    colour: '#8a6a4c'},
-  seed:  {name: 'seeds', from: 'riga',    colour: '#6f9455'},
-  stone: {name: 'stone', from: 'jurmala', colour: '#a9a094'},
-};
-
-/* Growth. Real hours, so a seed planted tonight is up tomorrow — the whole
- * point of the mechanic. Watering skips a stage's worth of waiting rather
- * than being required, so forgetting costs patience and never the plant. */
-export const STAGES = [
-  {at: 0,   name: 'planted'},
-  {at: 3,   name: 'sprouting'},
-  {at: 10,  name: 'growing'},
-  {at: 24,  name: 'in leaf'},
-  {at: 44,  name: 'flowering'},
-];
-
-/* What a built thing makes, on its own, while she is not here.
+/* Everything the game balances on comes from content/world.json, emitted by
+ * design/*.py. The runtime holds no opinions about numbers: tuning is a Python
+ * edit and a re-run, and the balance can be simulated against four hundred
+ * imaginary players before she ever sees it.
  *
- * Production caps rather than spoils. A full well simply stops filling — the
- * cap is a reason to come back, never a punishment for not. Nothing is ever
- * lost by being away, which is the whole difference between an idle game that
- * waits and one that nags.
- */
-export const PRODUCES = {
-  well: {gives: 'water', every: 2,  cap: 8},
-  bed:  {gives: 'seed',  every: 5,  cap: 6},
+ * The fallbacks below are only what keeps the app alive if the file fails to
+ * load; they are never the real values. */
+export let RESOURCES = {
+  water: {name: 'water', colour: '#7fb4c4'},
+  wood:  {name: 'wood',  colour: '#8a6a4c'},
+  seed:  {name: 'seeds', colour: '#6f9455'},
+  stone: {name: 'stone', colour: '#a9a094'},
 };
+export let PRODUCES = {};
+export let STAGES = [{at: 0, name: 'planted'}];
+export let BUILDS = [];
+export let TIERS = [];
+export let FLORA = [];
+let WATER_GAIN = 6, REGROW_H = 5, HARVEST = {gives: {}, resetsTo: 1};
 
-export const BUILDS = [
-  {id: 'path',   name: 'a path',    cost: {stone: 3},           note: 'so the way to the door is worn in'},
-  {id: 'fence',  name: 'a fence',   cost: {wood: 4},            note: 'a line that says this bit is ours'},
-  {id: 'bench',  name: 'a bench',   cost: {wood: 6, stone: 2},  note: 'somewhere to sit and do nothing, which we were good at'},
-  {id: 'bed',    name: 'a garden bed', cost: {wood: 5, stone: 2}, note: 'somewhere for things to start'},
-  {id: 'well',   name: 'a well',    cost: {stone: 8},           note: 'so the water is always here'},
-  {id: 'walls',  name: 'walls',     cost: {wood: 12, stone: 6}, note: 'the beginning of somewhere indoors'},
-  {id: 'roof',   name: 'a roof',    cost: {wood: 16, stone: 4}, note: 'and then it is a house'},
-];
+export async function loadWorld() {
+  try {
+    const r = await fetch('content/world.json', {cache: 'no-cache'});
+    if (!r.ok) return false;
+    const w = await r.json();
+    RESOURCES = w.resources || RESOURCES;
+    PRODUCES = w.produces || {};
+    STAGES = w.stages || STAGES;
+    BUILDS = w.builds || [];
+    TIERS = w.tiers || [];
+    FLORA = w.flora || [];
+    WATER_GAIN = w.waterGain ?? 6;
+    REGROW_H = w.nodeRegrow ?? 5;
+    HARVEST = w.harvest || HARVEST;
+    return true;
+  } catch { return false; }
+}
+
+/* A tier opens only when everything in the one before it is built, so the
+ * homestead becomes a place in a recognisable order rather than a shopping
+ * list sorted by price. */
+export function tierOpen(tierId) {
+  const t = TIERS.find(x => x.id === tierId);
+  if (!t || !t.needs) return true;
+  const need = BUILDS.filter(b => b.tier === t.needs).map(b => b.id);
+  return need.every(id => state.built.includes(id));
+}
+
+export function available() {
+  return BUILDS.filter(b => tierOpen(b.tier));
+}
 
 const BLANK = () => ({inv: {water: 0, wood: 0, seed: 0, stone: 0},
                       plots: [], built: [], taken: {},
@@ -98,7 +110,7 @@ export function take(kind, n = 1) {
 
 export function build(id) {
   const b = BUILDS.find(x => x.id === id);
-  if (!b || state.built.includes(id) || !has(b.cost)) return false;
+  if (!b || state.built.includes(id) || !has(b.cost) || !tierOpen(b.tier)) return false;
   for (const [k, n] of Object.entries(b.cost)) state.inv[k] -= n;
   state.built.push(id);
   /* A producer starts counting from the moment it exists. Without its own
@@ -130,8 +142,25 @@ export function water(i) {
   return true;
 }
 
+/* A flowering plot can be picked. It goes back to sprouting rather than
+ * dying, so the garden is never emptier for having been enjoyed. */
+export function canHarvest(i) {
+  const p = state.plots[i];
+  return !!p && stageOf(p) >= STAGES.length - 1;
+}
+
+export function harvest(i) {
+  if (!canHarvest(i)) return null;
+  const p = state.plots[i];
+  for (const [k, n] of Object.entries(HARVEST.gives || {})) take(k, n);
+  p.at = Date.now() - (STAGES[HARVEST.resetsTo]?.at ?? 0) * HOUR;
+  p.water = 0;
+  save();
+  return HARVEST.gives;
+}
+
 export function ageOf(p) {
-  return (Date.now() - p.at) / HOUR + (p.water || 0) * 6;
+  return (Date.now() - p.at) / HOUR + (p.water || 0) * WATER_GAIN;
 }
 
 export function stageOf(p) {
@@ -159,12 +188,12 @@ export function nextChange(p) {
  * real hours. Regrowth is slow enough to have a rhythm and fast enough that
  * she is never stuck: the homestead only ever needs patience, not grinding.
  */
-const REGROW = 5 * HOUR;
+
 
 export function nodeTaken(id) {
   const t = state.taken[id];
   if (!t) return false;
-  if (Date.now() - t > REGROW) { delete state.taken[id]; save(); return false; }
+  if (Date.now() - t > REGROW_H * HOUR) { delete state.taken[id]; save(); return false; }
   return true;
 }
 
@@ -237,7 +266,7 @@ export function whileAway() {
 }
 
 function stageAt(p, when) {
-  const h = (when - p.at) / HOUR + (p.water || 0) * 6;
+  const h = (when - p.at) / HOUR + (p.water || 0) * WATER_GAIN;
   let s = 0;
   for (let i = 0; i < STAGES.length; i++) if (h >= STAGES[i].at) s = i;
   return s;

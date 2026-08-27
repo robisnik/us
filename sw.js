@@ -18,6 +18,7 @@ const SHELL = [
   'src/main.js', 'src/stations.js', 'src/theme.js', 'src/card.js',
   'src/terrain.js', 'src/finds.js', 'src/tend.js', 'src/homestead.js', 'src/panel.js',
   'src/backend.js', 'src/app.css',
+  'content/world.json',
   'manifest.webmanifest',
   'assets/icons/icon-180.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
 ];

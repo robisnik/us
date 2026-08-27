@@ -15,6 +15,7 @@ import {STATIONS} from './stations.js';
 import {P} from './theme.js';
 import * as card from './card.js';
 import {heightAt, slopeAt, paletteAt, scatter, REGIONS, WORLD_END} from './terrain.js';
+import {FINDS, drawFind} from './finds.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;
@@ -37,6 +38,28 @@ let placed = STATIONS.map((st, i) => ({
 }));
 
 const byName = Object.fromEntries(STATIONS.map(s => [s.name, s]));
+
+/* What she has found. Kept on her phone: nothing here is worth an account, and
+ * a collection that resets because a request failed would be worse than one
+ * that never syncs. */
+const KEPT = 'us.kept';
+let kept = load();
+function load() {
+  try { return new Set(JSON.parse(localStorage.getItem(KEPT) || '[]')); }
+  catch { return new Set(); }
+}
+function remember() {
+  try { localStorage.setItem(KEPT, JSON.stringify([...kept])); } catch {}
+}
+
+/* Placed once the world exists. They float above the ground, most of them high
+ * enough that walking past is not enough. */
+const findsPlaced = FINDS.map(f => {
+  const x = 300 + f.at * (WORLD_END - 600);
+  return {...f, x, y: heightAt(x) - f.lift};
+});
+
+let justFound = null, justFoundAt = 0;
 
 /* The opening. It is dismissed by a tap anywhere, and the tap that dismisses
  * it does nothing else — landing in the world and immediately walking because
@@ -245,6 +268,20 @@ function simulate(h) {
 
   stepBlob(h, ax, ay);
 
+  /* Picking something up. Generous radius: reaching it is the challenge, not
+   * touching it precisely. */
+  for (const f of findsPlaced) {
+    if (kept.has(f.id)) continue;
+    if (Math.hypot(f.x - slime.x, f.y - slime.y) < 46) {
+      kept.add(f.id);
+      remember();
+      justFound = f;
+      justFoundAt = clock;
+      /* A small kick, so it feels like it landed in him. */
+      for (let i = 0; i < N; i++) rim[i].v += 1.8;
+    }
+  }
+
   cam.px = cam.x; cam.py = cam.y;
   const k = 1 - Math.exp(-7 * h);
   cam.x += (slime.x - cam.x) * k;
@@ -316,6 +353,13 @@ function render(alpha) {
 
   drawLand(cx, cy, W, H, pal, sy2);
 
+  for (const f of findsPlaced) {
+    const px = f.x - cx + W / 2;
+    if (px < -80 || px > W + 80) continue;
+    const d = Math.hypot(f.x - slime.x, f.y - slime.y);
+    drawFind(ctx, f, px, sy2(f.y), clock, kept.has(f.id), Math.max(0, 1 - d / 240));
+  }
+
   let nearest = null, nearestD = Infinity;
   for (const it of placed) {
     const d = Math.abs(it.x - slime.x);
@@ -350,6 +394,33 @@ function render(alpha) {
 
   /* One line, and only when there is something to do. A readout that is
    * always on becomes furniture and stops being read. */
+  /* What she just picked up, named for a few seconds. */
+  const since = clock - justFoundAt;
+  if (justFound && since < 3.4) {
+    const a = since < 0.3 ? since / 0.3 : since > 2.6 ? Math.max(0, (3.4 - since) / 0.8) : 1;
+    ctx.globalAlpha = a;
+    ctx.textAlign = 'center';
+    ctx.font = '13px ui-serif, Georgia, serif';
+    ctx.fillStyle = P.ink;
+    ctx.fillText(justFound.name, W / 2, H * 0.30);
+    ctx.font = '11px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = P.inkSoft;
+    ctx.fillText(justFound.note, W / 2, H * 0.30 + 20);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+
+  /* The tally, bottom corner, quiet. */
+  ctx.textAlign = 'right';
+  ctx.font = '11px ui-monospace, Menlo, monospace';
+  ctx.fillStyle = P.inkSoft;
+  ctx.globalAlpha = 0.55;
+  ctx.fillText(`${kept.size} / ${FINDS.length} found`,
+               W - 14, H - 14 - (parseInt(getComputedStyle(document.documentElement)
+                 .getPropertyValue('--safe-bottom')) || 0));
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+
   const atOne = nearest && nearestD < REACH && nearest.moment && !card.isOpen();
   hud.textContent = atOne ? 'tap to read' : '';
   hud.style.opacity = atOne ? '1' : '0';
@@ -589,6 +660,11 @@ if (['localhost', '127.0.0.1'].includes(location.hostname)) {
   window.__dev = {
     slime, cam, STATIONS,
     get placed() { return placed; },
+    get finds() { return findsPlaced; },
+    get kept() { return kept; },
+    toFind: i => { const f = findsPlaced[i]; slime.x = f.x; slime.y = f.y; slime.vx = slime.vy = 0;
+                   cam.x = cam.px = f.x; cam.y = cam.py = f.y; },
+    forget: () => { kept.clear(); remember(); },
     open: i => placed[i]?.moment && card.open(placed[i].moment),
     jump(i) {
       /* Stand him beside it, not on top of it. */

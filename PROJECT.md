@@ -156,6 +156,21 @@ The land is built to be leapt over: squashing a sine through `tanh` flattens
 its peaks and steepens its shoulders, turning rolling hills into ledges and
 drops. Sines alone only ever give undulation.
 
+**Twelve things to find** (`src/finds.js`). Every one is an actual object from
+his story — the charm she crocheted, the bracelet from Helsinki, the Lego, the
+brownies, the boarding pass. That matters more than it sounds: a generic pickup
+is a score, a thing she gave him is a memory. They float above the ground and
+are the reason the leap exists.
+
+A leap from flat ground reaches **123px**, so nothing is placed above **108**.
+Anything higher would need her to find the one hillock that makes it possible,
+which is not a puzzle — it is a bug she cannot tell apart from one. All twelve
+were tested by standing underneath and leaping: all reachable.
+
+Found items are kept in `localStorage` under `us.kept`. Nothing here is worth
+an account, and a collection that reset because a request failed would be worse
+than one that never syncs.
+
 **Light.** He glows, and the glow swells with speed and with being airborne —
 it is what makes him read as alive rather than as a shape being moved. Warm
 motes drift through the air, positioned from a hash of their index and offset
@@ -271,10 +286,9 @@ and security, verified.
   shown so she can see he is awake. She is alone in Latvia; after eighteen
   things the app currently just stops, which is a small abandonment.
 - Adventure, still to do: **side paths and branching routes** (moments that can
-  be missed and come back for), **findable objects from the real story** (the
-  crocheted charm, the flower bracelet, the McQueen Lego, the brownies), a
-  **map screen**, and **deeper parallax with mist** for Ori-like depth. The
-  movement and the land are done; the world is not yet branching.
+  be missed and come back for), a **map screen**, and **deeper parallax with
+  mist** for Ori-like depth. The movement, the land and the finds are done; the
+  world is still a single route.
 - Sign-in, the postbox, photo storage — all need `backend.js` wiring
 - GitHub is not connected to Vercel; deploys are manual
 

@@ -16,6 +16,7 @@ const DOC = 'index.html';
 const SHELL = [
   './', DOC,
   'src/main.js', 'src/stations.js', 'src/theme.js', 'src/card.js',
+  'src/terrain.js', 'src/finds.js',
   'src/backend.js', 'src/app.css',
   'manifest.webmanifest',
   'assets/icons/icon-180.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',

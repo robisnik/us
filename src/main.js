@@ -85,6 +85,30 @@ let gather = null, holding = false;
 
 function say(text) { toast = text; toastAt = clock; }
 
+/* What happened while she was away, said once, on opening.
+ *
+ * Only ever good news, because there is no mechanic that can produce bad news.
+ * If nothing changed it says nothing at all rather than inventing a reason to
+ * speak — a summary that fires every time stops being read. */
+function welcomeBack() {
+  const away = tend.whileAway();
+  if (away.hours < 0.5) return;
+
+  const bits = [];
+  if (away.grew.length === 1) bits.push(`something is ${away.grew[0].to}`);
+  else if (away.grew.length > 1) bits.push(`${away.grew.length} things grew`);
+  for (const [k, n] of Object.entries(away.ready)) {
+    bits.push(`${n} ${tend.RESOURCES[k].name} waiting`);
+  }
+  if (!bits.length) return;
+
+  const when = away.hours < 20 ? 'while you were gone'
+             : away.hours < 44 ? 'since yesterday'
+             : `in the ${Math.round(away.hours / 24)} days you were away`;
+  setTimeout(() => say(`${when}: ${bits.join(', ')}`), 900);
+}
+welcomeBack();
+
 /* The opening. It is dismissed by a tap anywhere, and the tap that dismisses
  * it does nothing else — landing in the world and immediately walking because
  * the same touch was still counted would feel like a slip. */

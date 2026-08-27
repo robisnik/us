@@ -39,17 +39,33 @@ export const STAGES = [
   {at: 44,  name: 'flowering'},
 ];
 
+/* What a built thing makes, on its own, while she is not here.
+ *
+ * Production caps rather than spoils. A full well simply stops filling — the
+ * cap is a reason to come back, never a punishment for not. Nothing is ever
+ * lost by being away, which is the whole difference between an idle game that
+ * waits and one that nags.
+ */
+export const PRODUCES = {
+  well: {gives: 'water', every: 2,  cap: 8},
+  bed:  {gives: 'seed',  every: 5,  cap: 6},
+};
+
 export const BUILDS = [
   {id: 'path',   name: 'a path',    cost: {stone: 3},           note: 'so the way to the door is worn in'},
   {id: 'fence',  name: 'a fence',   cost: {wood: 4},            note: 'a line that says this bit is ours'},
   {id: 'bench',  name: 'a bench',   cost: {wood: 6, stone: 2},  note: 'somewhere to sit and do nothing, which we were good at'},
+  {id: 'bed',    name: 'a garden bed', cost: {wood: 5, stone: 2}, note: 'somewhere for things to start'},
   {id: 'well',   name: 'a well',    cost: {stone: 8},           note: 'so the water is always here'},
   {id: 'walls',  name: 'walls',     cost: {wood: 12, stone: 6}, note: 'the beginning of somewhere indoors'},
   {id: 'roof',   name: 'a roof',    cost: {wood: 16, stone: 4}, note: 'and then it is a house'},
 ];
 
 const BLANK = () => ({inv: {water: 0, wood: 0, seed: 0, stone: 0},
-                      plots: [], built: [], taken: {}, v: 1});
+                      plots: [], built: [], taken: {},
+                      /* When each producer last had its output collected, and
+                       * when she was last here at all. */
+                      made: {}, seen: Date.now(), v: 1});
 
 let state = load();
 
@@ -85,6 +101,11 @@ export function build(id) {
   if (!b || state.built.includes(id) || !has(b.cost)) return false;
   for (const [k, n] of Object.entries(b.cost)) state.inv[k] -= n;
   state.built.push(id);
+  /* A producer starts counting from the moment it exists. Without its own
+   * baseline it fell back to `seen`, which whileAway() resets on every open —
+   * so the clock it measured against was wiped before it was ever read, and
+   * nothing was ever produced. */
+  if (PRODUCES[id]) state.made[id] = Date.now();
   save();
   return true;
 }
@@ -156,6 +177,72 @@ export function takeNode(id, kind) {
 
 /* For the backend, when it is wired: the whole of her progress in one object,
  * small enough to send on every change without thinking about it. */
+/* What a producer is holding right now. Derived from elapsed time rather than
+ * ticked, so it is correct whether the app was open, closed, or the phone was
+ * off for three days. A ticking counter would simply be wrong after a nap. */
+export function waiting(id) {
+  const p = PRODUCES[id];
+  if (!p || !state.built.includes(id)) return 0;
+  /* Its own baseline, never `seen`. */
+  const since = state.made[id];
+  if (!since) { state.made[id] = Date.now(); save(); return 0; }
+  return Math.min(p.cap, Math.floor((Date.now() - since) / (p.every * HOUR)));
+}
+
+export function collect(id) {
+  const n = waiting(id);
+  if (!n) return 0;
+  const p = PRODUCES[id];
+  take(p.gives, n);
+  /* Credit only the whole units taken, so the remainder keeps counting rather
+   * than being thrown away. */
+  state.made[id] = (state.made[id] || Date.now()) + n * p.every * HOUR;
+  save();
+  return n;
+}
+
+export function collectAll() {
+  const got = {};
+  for (const id of Object.keys(PRODUCES)) {
+    const n = collect(id);
+    if (n) got[PRODUCES[id].gives] = (got[PRODUCES[id].gives] || 0) + n;
+  }
+  return got;
+}
+
+/* What happened while she was away.
+ *
+ * Called once on opening. Everything here is additive — a summary of good
+ * news, or nothing at all. There is deliberately no branch that reports a
+ * loss, because there is no mechanic that can cause one. */
+export function whileAway() {
+  const gap = Date.now() - (state.seen || Date.now());
+
+  const grew = [];
+  for (const p of state.plots) {
+    const now = stageOf(p);
+    const then = stageAt(p, Date.now() - gap);
+    if (now > then) grew.push({from: STAGES[then].name, to: STAGES[now].name});
+  }
+
+  const ready = {};
+  for (const id of Object.keys(PRODUCES)) {
+    const n = waiting(id);
+    if (n) ready[PRODUCES[id].gives] = (ready[PRODUCES[id].gives] || 0) + n;
+  }
+
+  state.seen = Date.now();
+  save();
+  return {hours: gap / HOUR, grew, ready};
+}
+
+function stageAt(p, when) {
+  const h = (when - p.at) / HOUR + (p.water || 0) * 6;
+  let s = 0;
+  for (let i = 0; i < STAGES.length; i++) if (h >= STAGES[i].at) s = i;
+  return s;
+}
+
 export function snapshot() { return JSON.parse(JSON.stringify(state)); }
 
 export function restore(remote) {

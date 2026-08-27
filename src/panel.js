@@ -22,6 +22,7 @@ function build() {
       <button class="panel-close" type="button" aria-label="Close"></button>
       <h2></h2>
       <div class="panel-carry"></div>
+      <div class="panel-prod"></div>
       <div class="panel-plots"></div>
       <div class="panel-builds"></div>
     </div>`;
@@ -66,11 +67,31 @@ function render() {
   /* Away from the homestead this is just a pouch: what she has, and a line
    * saying where the rest of it is. Planting and building need the place. */
   if (!home) {
+    el.querySelector('.panel-prod').innerHTML = '';
     el.querySelector('.panel-plots').innerHTML =
       '<p class="panel-empty">The homestead is at the far end, past everything. '
       + 'Bring these there and you can plant and build.</p>';
     el.querySelector('.panel-builds').innerHTML = '';
     return;
+  }
+
+  /* What has been made while she was elsewhere. Shown before the garden,
+   * because it is the thing that changed since last time. */
+  const prod = Object.keys(tend.PRODUCES)
+    .filter(id => tend.built().includes(id))
+    .map(id => ({id, n: tend.waiting(id), p: tend.PRODUCES[id]}));
+  const anyReady = prod.some(x => x.n > 0);
+  const pr = el.querySelector('.panel-prod');
+  if (prod.length) {
+    pr.innerHTML = '<p class="panel-label">waiting for you</p><ul>'
+      + prod.map(({id, n, p}) => `<li><span>${n
+          ? `${n} ${tend.RESOURCES[p.gives].name}`
+          : `nothing yet — ${tend.RESOURCES[p.gives].name} every ${p.every}h`}</span>`
+        + (n ? `<button data-take="${id}">take</button>` : '') + '</li>').join('')
+      + '</ul>'
+      + (anyReady ? '<button class="panel-do" data-takeall="1">take everything</button>' : '');
+  } else {
+    pr.innerHTML = '';
   }
 
   /* Plots */
@@ -113,6 +134,10 @@ function render() {
   }
   bl.innerHTML = bh + '</ul>';
 
+  el.querySelectorAll('[data-take]').forEach(b =>
+    b.addEventListener('click', () => { tend.collect(b.dataset.take); render(); onChange?.(); }));
+  el.querySelectorAll('[data-takeall]').forEach(b =>
+    b.addEventListener('click', () => { tend.collectAll(); render(); onChange?.(); }));
   el.querySelectorAll('[data-plant]').forEach(b =>
     b.addEventListener('click', () => { if (tend.plant()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-water]').forEach(b =>

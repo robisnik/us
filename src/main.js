@@ -14,6 +14,7 @@
 import {STATIONS} from './stations.js';
 import {P} from './theme.js';
 import * as card from './card.js';
+import {heightAt, slopeAt, paletteAt, scatter, REGIONS, WORLD_END} from './terrain.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;
@@ -66,8 +67,13 @@ async function loadStory() {
     const {moments, intro} = await r.json();
     if (intro) showIntro(intro);
     if (!Array.isArray(moments) || !moments.length) return;
+    /* Spread across the whole world rather than in a queue. His story is
+     * chronological and the regions are in the same order, so walking it is
+     * walking the year — school, Vienna, the parks, the beach, the lake, the
+     * airport, now. */
+    const usable = WORLD_END - FIRST * 2;
     placed = moments.map((m, i) => ({
-      x: FIRST + i * SPACING,
+      x: FIRST + (moments.length === 1 ? 0 : (i / (moments.length - 1)) * usable),
       station: byName[m.station] || byName.photo,
       moment: m,
       label: m.title || '',
@@ -154,7 +160,10 @@ function simulate(h) {
 
   const ax = takeX / h, ay = takeY / h;
   slime.vx += takeX * 9;
-  slime.vy += takeY * 9;
+  /* Climbing costs something; going downhill gives it back. Enough to feel
+   * the land, not enough to fight her. */
+  slime.vx *= 1 - Math.max(0, slopeAt(slime.x) * Math.sign(slime.vx)) * 0.12;
+  slime.vy = 0;
 
   const MAX_SPEED = 1500;
   const sp = Math.hypot(slime.vx, slime.vy);
@@ -162,18 +171,24 @@ function simulate(h) {
 
   const friction = Math.exp(-4 * h);
   slime.vx *= friction;
-  slime.vy *= friction;
 
   slime.px = slime.x; slime.py = slime.y;
   slime.x += slime.vx * h;
-  slime.y += slime.vy * h;
+
+  /* He is held to the land rather than floating over it. Vertical drag is
+   * gone: on a hillside "up" is ambiguous, and letting her lift him off the
+   * ground broke the illusion that this is a place. */
+  slime.x = Math.max(-400, Math.min(WORLD_END + 400, slime.x));
+  slime.y = heightAt(slime.x);
 
   stepBlob(h, ax, ay);
 
   cam.px = cam.x; cam.py = cam.y;
   const k = 1 - Math.exp(-7 * h);
   cam.x += (slime.x - cam.x) * k;
-  cam.y += (slime.y * 0.35 - cam.y) * k;
+  /* The camera follows the climb more slowly than the walk, so cresting a
+   * hill reveals what is beyond it rather than snapping to it. */
+  cam.y += (slime.y - cam.y) * k * 0.55;
 }
 
 /* ---- drawing ----------------------------------------------------------- */
@@ -214,16 +229,16 @@ function render(alpha) {
   const sx = slime.px + (slime.x - slime.px) * alpha;
   const sy = slime.py + (slime.y - slime.py) * alpha;
 
-  ctx.fillStyle = '#f4f4f0';
+  const pal = paletteAt(slime.x);
+
+  ctx.fillStyle = pal.sky;
   ctx.fillRect(0, 0, W, H);
 
-  const gy = H * 0.68 - cy;
+  /* Screen y for a world point. Everything below agrees on this one line. */
+  const HORIZON = H * 0.62;
+  const sy2 = wy => wy - cy + HORIZON;
 
-  /* The ground: one hairline. Enough to say which way is down without the
-   * grid coming back. */
-  ctx.strokeStyle = '#e2dfd6';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, gy + 0.5); ctx.lineTo(W, gy + 0.5); ctx.stroke();
+  drawLand(cx, cy, W, H, pal, sy2);
 
   let nearest = null, nearestD = Infinity;
   for (const it of placed) {
@@ -232,6 +247,7 @@ function render(alpha) {
 
     const px = it.x - cx + W / 2;
     if (px < -160 || px > W + 160) continue;
+    const gy = sy2(heightAt(it.x));
 
     const near = Math.max(0, 1 - d / 200);
     it.station.draw(ctx, px, gy, clock, near);
@@ -239,7 +255,7 @@ function render(alpha) {
     ctx.textAlign = 'center';
     ctx.font = '11px ui-monospace, Menlo, monospace';
     ctx.fillStyle = near > 0.05 ? P.ink : P.inkSoft;
-    ctx.fillText(it.label, px, gy + 24);
+    ctx.fillText(fit(it.label, Math.min(W - 24, 300)), px, gy + 24);
     if (it.sub) {
       ctx.font = '10px ui-monospace, Menlo, monospace';
       ctx.fillStyle = P.inkSoft;
@@ -250,15 +266,134 @@ function render(alpha) {
   }
   ctx.textAlign = 'left';
 
-  /* World y = 0 is the ground line. The blob's centre sits one vertical radius
-   * above it, so it rests on the line rather than through it. */
-  drawSlime(sx - cx + W / 2, sy - cy + H * 0.68 - slime.r * 0.92, alpha);
+  /* His feet are on the land; his centre is one vertical radius above it. */
+  drawSlime(sx - cx + W / 2, sy2(sy) - slime.r * 0.92, alpha);
 
   /* One line, and only when there is something to do. A readout that is
    * always on becomes furniture and stops being read. */
   const atOne = nearest && nearestD < REACH && nearest.moment && !card.isOpen();
   hud.textContent = atOne ? 'tap to read' : '';
   hud.style.opacity = atOne ? '1' : '0';
+}
+
+/* Trims a label to the width available, so a long opening line never runs off
+ * the side of a phone. Measured rather than counted: the font is proportional
+ * enough that a character count is wrong by a word either way. */
+const fitCache = new Map();
+function fit(text, max) {
+  const key = text + '|' + Math.round(max);
+  if (fitCache.has(key)) return fitCache.get(key);
+  let out = text;
+  if (ctx.measureText(text).width > max) {
+    let lo = 0, hi = text.length;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (ctx.measureText(text.slice(0, mid) + '…').width <= max) lo = mid; else hi = mid - 1;
+    }
+    out = text.slice(0, lo).trimEnd() + '…';
+  }
+  fitCache.set(key, out);
+  return out;
+}
+
+/* Draws the ground across the visible width, plus whatever grows on it.
+ *
+ * Sampled every few pixels rather than solved: the height function is three
+ * sines and sampling is both cheaper than it looks and exactly what is drawn,
+ * so nothing can drift out of step with where the creature actually stands. */
+function drawLand(cx, cy, W, H, pal, sy2) {
+  const STEP = 6;
+  const x0 = cx - W / 2 - STEP, x1 = cx + W / 2 + STEP;
+
+  scenery(x0, x1, cx, W, pal, sy2);
+
+  ctx.beginPath();
+  ctx.moveTo(-4, H + 4);
+  for (let x = x0; x <= x1; x += STEP) {
+    ctx.lineTo(x - cx + W / 2, sy2(heightAt(x)));
+  }
+  ctx.lineTo(W + 4, H + 4);
+  ctx.closePath();
+  ctx.fillStyle = pal.ground;
+  ctx.fill();
+
+  /* A lit edge along the top. Without it the land is a silhouette and the
+   * eye cannot read which way the ground is tilting. */
+  ctx.beginPath();
+  for (let x = x0; x <= x1; x += STEP) {
+    const px = x - cx + W / 2, py = sy2(heightAt(x));
+    x === x0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.strokeStyle = pal.ink;
+  ctx.globalAlpha = 0.42;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/* What grows on the land here. Every region gets its own, derived from x so
+ * it is the same on every visit and costs nothing to remember. */
+function scenery(x0, x1, cx, W, pal, sy2) {
+  const put = (x, y, draw) => { ctx.save(); ctx.translate(x - cx + W / 2, y); draw(); ctx.restore(); };
+
+  if (pal.feature === 'forest') {
+    for (const t of scatter(x0, x1, 78, 3)) {
+      const h = 40 + t.r * 46;
+      put(t.x, sy2(heightAt(t.x)), () => {
+        const w = 13 + t.r2 * 6;
+        ctx.fillStyle = pal.ink;
+        /* Canopy first, trunk over it: a triangle drawn behind a line reads as
+         * a tree; the same triangle at a whisper of alpha reads as a smudge
+         * behind a pole. */
+        ctx.globalAlpha = 0.34;
+        for (let tier = 0; tier < 3; tier++) {
+          const ty = -h * (0.34 + tier * 0.22), tw = w * (1 - tier * 0.24);
+          ctx.beginPath();
+          ctx.moveTo(-tw, ty);
+          ctx.lineTo(0, ty - h * 0.30);
+          ctx.lineTo(tw, ty);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = pal.ink; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h * 0.5); ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+    }
+  } else if (pal.feature === 'town') {
+    for (const t of scatter(x0, x1, 120, 7)) {
+      const w = 34 + t.r * 40, h = 46 + t.r2 * 60;
+      put(t.x, sy2(heightAt(t.x)), () => {
+        ctx.fillStyle = pal.ink; ctx.globalAlpha = 0.26;
+        ctx.fillRect(-w / 2, -h, w, h);
+        if (t.r2 > 0.55) { ctx.beginPath(); ctx.moveTo(-w/2, -h); ctx.lineTo(0, -h - 16); ctx.lineTo(w/2, -h); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      });
+    }
+  } else if (pal.feature === 'dune') {
+    for (const t of scatter(x0, x1, 46, 11)) {
+      put(t.x, sy2(heightAt(t.x)), () => {
+        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.3; ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          ctx.moveTo(i * 3 - 3, 0);
+          ctx.lineTo(i * 3 - 4 - t.r2 * 3, -8 - t.r * 9);
+        }
+        ctx.stroke(); ctx.globalAlpha = 1;
+      });
+    }
+  } else if (pal.feature === 'park') {
+    for (const t of scatter(x0, x1, 96, 17)) {
+      const h = 30 + t.r * 26;
+      put(t.x, sy2(heightAt(t.x)), () => {
+        ctx.strokeStyle = pal.ink; ctx.globalAlpha = 0.45; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -h); ctx.stroke();
+        ctx.globalAlpha = 0.2;
+        ctx.beginPath(); ctx.arc(0, -h - 8, 15 + t.r2 * 8, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
+  }
 }
 
 /* ---- input ------------------------------------------------------------- */

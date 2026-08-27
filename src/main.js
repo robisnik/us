@@ -14,8 +14,11 @@
 import {STATIONS} from './stations.js';
 import {P} from './theme.js';
 import * as card from './card.js';
-import {heightAt, slopeAt, paletteAt, scatter, REGIONS, WORLD_END} from './terrain.js';
+import {heightAt, slopeAt, paletteAt, scatter, REGIONS, WORLD_END, FEATURES} from './terrain.js';
 import {FINDS, drawFind} from './finds.js';
+import * as tend from './tend.js';
+import {nodesFor, drawNode, drawHome} from './homestead.js';
+import * as panel from './panel.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;
@@ -60,6 +63,19 @@ const findsPlaced = FINDS.map(f => {
 });
 
 let justFound = null, justFoundAt = 0;
+
+/* Where the land gives things, and where the homestead stands. The homestead
+ * sits past the last moment on purpose: her story ends at the airport and then
+ * at eighteen things, and the only honest direction after those is forward. */
+const nodes = nodesFor(WORLD_END, FEATURES).map(n => ({...n, y: 0}));
+const HOME_X = WORLD_END - 700;
+let toast = null, toastAt = 0;
+
+/* Gathering: how long she must hold, and how far along she is. */
+const GATHER_TIME = 0.9;
+let gather = null, holding = false;
+
+function say(text) { toast = text; toastAt = clock; }
 
 /* The opening. It is dismissed by a tap anywhere, and the tap that dismisses
  * it does nothing else — landing in the world and immediately walking because
@@ -131,47 +147,33 @@ const slime = {x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, r: 34};
 
 /* Traversal.
  *
- * He was pinned to the ground and dragged along it, which is a scrubbing
- * gesture, not a character. Gravity, a leap and air control turn the same land
- * into something to move THROUGH. */
-const GRAVITY   = 2100;
-const JUMP      = 720;
-const AIR_CTRL  = 0.42;     // how much a drag steers him mid-air
-const COYOTE    = 0.10;     // grace after walking off an edge
-const BUFFER    = 0.14;     // a leap asked for just before landing still counts
-const MAX_FALL  = 1500;
+ * No gravity. He moves freely in both axes, and drag steers him anywhere.
+ *
+ * An earlier version had gravity, a leap, coyote time and jump buffering, and
+ * it felt good — but platforming and architecture pull in opposite directions.
+ * A house with rooms is something to move around INSIDE, and a jump arc can
+ * only ever take you up and back down again. Free movement means the world can
+ * have interiors, floors, and places above and below the ground line that are
+ * simply somewhere to go.
+ *
+ * The ground is still a floor: he cannot sink into the land, which keeps the
+ * landscape readable as landscape.
+ */
+const CEILING = -560;       // how high the sky lets him drift
 
-let grounded = false, coyote = 0, buffered = 0, airborne = 0, lastLanding = 0;
+let grounded = false;
 const cam = {x: 0, y: 0, px: 0, py: 0};
 
 const N = 26;
 const rim = Array.from({length: N}, () => ({o: 0, v: 0, po: 0}));
 
-let pending = 0;                 // drag not yet consumed by the simulation
+let pending = 0, pendingY = 0;   // drag not yet consumed by the simulation
 let clock = 0;
 
 /* ---- the blob ---------------------------------------------------------- */
 
 const MAX_O = 0.34, MAX_RIM_V = 4;
 const DRIVE = 0.00038, MAX_DRIVE = 0.34;
-
-/* A leap. Allowed for a moment after walking off an edge, and remembered for
- * a moment if asked for just before landing — both are invisible and both are
- * the difference between a jump that feels responsive and one that feels
- * broken. */
-function leap() {
-  if (!grounded && coyote <= 0) { buffered = BUFFER; return false; }
-  slime.vy = -JUMP;
-  grounded = false;
-  coyote = 0;
-  airborne = 0.001;
-  /* Stretch on the way up. */
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2;
-    rim[i].v += Math.sin(a) * 3.2;
-  }
-  return true;
-}
 
 function stepBlob(h, ax, ay) {
   const K = 150, D = 7, VISC = 9;
@@ -210,63 +212,74 @@ function simulate(h) {
 
   /* The drag is spread across the steps of this frame rather than dumped into
    * one, which is what stops a fast flick from arriving as a spike. */
-  const takeX = pending * 0.35, takeY = 0;
-  pending -= takeX;
+  const takeX = pending * 0.35, takeY = pendingY * 0.35;
+  pending -= takeX; pendingY -= takeY;
 
   const ax = takeX / h, ay = takeY / h;
 
-  /* Drag steers. On the ground it is most of his speed; in the air it is a
-   * nudge, so a leap commits and cannot be flown. */
-  slime.vx += takeX * 9 * (grounded ? 1 : AIR_CTRL);
+  slime.vx += takeX * 9;
+  slime.vy += takeY * 9;
 
-  if (grounded) {
-    /* Climbing costs a little, descending gives it back — enough to feel the
-     * land, not enough to fight her. */
-    slime.vx *= 1 - Math.max(0, slopeAt(slime.x) * Math.sign(slime.vx)) * 0.12;
-  }
+  const MAX_SPEED = 1400;
+  const sp = Math.hypot(slime.vx, slime.vy);
+  if (sp > MAX_SPEED) { slime.vx *= MAX_SPEED / sp; slime.vy *= MAX_SPEED / sp; }
 
-  const MAX_SPEED = 1500;
-  const sp = Math.abs(slime.vx);
-  if (sp > MAX_SPEED) slime.vx *= MAX_SPEED / sp;
-
-  /* Ground drag is heavy so he settles; air drag is almost nothing so an arc
-   * stays an arc. */
-  slime.vx *= Math.exp(-(grounded ? 4 : 0.5) * h);
-
-  slime.vy = Math.min(MAX_FALL, slime.vy + GRAVITY * h);
+  /* Drifting rather than falling: he keeps a little of his motion, then
+   * settles. The same damping on both axes, so a diagonal feels like a
+   * diagonal and not like two different materials. */
+  const drag = Math.exp(-3.4 * h);
+  slime.vx *= drag;
+  slime.vy *= drag;
 
   slime.px = slime.x; slime.py = slime.y;
   slime.x = Math.max(-400, Math.min(WORLD_END + 400, slime.x + slime.vx * h));
   slime.y += slime.vy * h;
 
-  /* Land. Screen coordinates, so larger y is lower and the ground is a
-   * ceiling from below. */
+  /* The land is a floor, not a surface he is stuck to. */
   const g = heightAt(slime.x);
-  coyote = Math.max(0, coyote - h);
-  buffered = Math.max(0, buffered - h);
-
-  if (slime.y >= g) {
-    if (!grounded && airborne > 0.12) {
-      /* Landing shoves the rim: the blob flattens on impact rather than
-       * arriving as a circle. */
-      lastLanding = Math.min(1, slime.vy / 900);
-      for (let i = 0; i < N; i++) {
-        const a = (i / N) * Math.PI * 2;
-        rim[i].v -= Math.sin(a) * lastLanding * 5.5;
-      }
+  if (slime.y > g) {
+    if (slime.vy > 260) for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      rim[i].v -= Math.sin(a) * Math.min(1, slime.vy / 900) * 4;
     }
     slime.y = g;
-    slime.vy = 0;
+    slime.vy = Math.min(0, slime.vy);
     grounded = true;
-    coyote = COYOTE;
-    airborne = 0;
-    if (buffered > 0) { leap(); buffered = 0; }
   } else {
-    grounded = false;
-    airborne += h;
+    grounded = slime.y > g - 3;
   }
+  if (slime.y < CEILING) { slime.y = CEILING; slime.vy = Math.max(0, slime.vy); }
 
   stepBlob(h, ax, ay);
+
+  /* Gathering takes a moment of standing still and holding.
+   *
+   * Walking over something and having it appear in a bag is a pickup, not a
+   * harvest — she crossed a valley to get here and it should cost more than
+   * passing through. Holding still also means she cannot hoover up a hollow
+   * at a run. */
+  const near = nodes.find(n =>
+    !tend.nodeTaken(n.id) &&
+    Math.abs(n.x - slime.x) < 44 &&
+    Math.abs(heightAt(n.x) - slime.y) < 66);
+
+  if (near && holding && grounded && Math.abs(slime.vx) < 40) {
+    gather = gather && gather.id === near.id
+      ? {id: near.id, t: gather.t + h}
+      : {id: near.id, t: h};
+    if (gather.t >= GATHER_TIME) {
+      if (tend.takeNode(near.id, near.kind)) {
+        say(tend.RESOURCES[near.kind].name);
+        for (let i = 0; i < N; i++) rim[i].v += 1.4;
+      }
+      gather = null;
+    }
+  } else if (gather) {
+    /* Let go and it drains back rather than snapping to nothing, so a
+     * stumble does not lose all the effort. */
+    gather = {...gather, t: gather.t - h * 2};
+    if (gather.t <= 0) gather = null;
+  }
 
   /* Picking something up. Generous radius: reaching it is the challenge, not
    * touching it precisely. */
@@ -353,6 +366,36 @@ function render(alpha) {
 
   drawLand(cx, cy, W, H, pal, sy2);
 
+  /* The homestead, drawn behind everything she might stand in front of. */
+  if (Math.abs(HOME_X - cx) < W) {
+    drawHome(ctx, HOME_X - cx + W / 2, sy2(heightAt(HOME_X)), clock);
+  }
+
+  for (const n of nodes) {
+    const px = n.x - cx + W / 2;
+    if (px < -60 || px > W + 60) continue;
+    const d = Math.abs(n.x - slime.x);
+    drawNode(ctx, n, px, sy2(heightAt(n.x)), clock,
+             tend.nodeTaken(n.id), Math.max(0, 1 - d / 200));
+  }
+
+  /* The ring that fills while she holds. Without it, holding still and
+   * nothing visibly happening reads as the game ignoring her. */
+  if (gather) {
+    const n = nodes.find(q => q.id === gather.id);
+    if (n) {
+      const gx = n.x - cx + W / 2, gyy = sy2(heightAt(n.x)) - 14;
+      const p = Math.max(0, Math.min(1, gather.t / GATHER_TIME));
+      ctx.strokeStyle = tend.RESOURCES[n.kind].colour;
+      ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.arc(gx, gyy, 17, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+
   for (const f of findsPlaced) {
     const px = f.x - cx + W / 2;
     if (px < -80 || px > W + 80) continue;
@@ -388,7 +431,7 @@ function render(alpha) {
 
   /* His feet are on the land; his centre is one vertical radius above it. */
   const hx = sx - cx + W / 2, hy = sy2(sy) - slime.r * 0.92;
-  drawGlow(hx, hy, Math.abs(slime.vx), grounded ? 0 : Math.min(1, airborne * 3));
+  drawGlow(hx, hy, Math.hypot(slime.vx, slime.vy), grounded ? 0 : 0.5);
   drawSlime(hx, hy, alpha);
   motes(W, H, cx, cy, sy2);
 
@@ -410,6 +453,34 @@ function render(alpha) {
     ctx.textAlign = 'left';
   }
 
+  /* What she is carrying. Only shown once she has something, so it is never
+   * an empty widget on the birthday screen. */
+  const carry = Object.entries(tend.inv()).filter(([, n]) => n > 0);
+  if (carry.length) {
+    ctx.textAlign = 'left';
+    ctx.font = '11px ui-monospace, Menlo, monospace';
+    let ix = 14;
+    for (const [k, n] of carry) {
+      ctx.fillStyle = tend.RESOURCES[k].colour;
+      ctx.beginPath(); ctx.arc(ix + 4, H - 18, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = P.inkSoft;
+      ctx.fillText(String(n), ix + 12, H - 14);
+      ix += 12 + ctx.measureText(String(n)).width + 10;
+    }
+  }
+
+  /* A word about what just happened, then gone. */
+  const tsince = clock - toastAt;
+  if (toast && tsince < 2) {
+    ctx.globalAlpha = tsince < 0.2 ? tsince / 0.2 : Math.min(1, (2 - tsince) / 0.6);
+    ctx.textAlign = 'center';
+    ctx.font = '12px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = P.inkSoft;
+    ctx.fillText(toast, W / 2, H * 0.38);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left';
+  }
+
   /* The tally, bottom corner, quiet. */
   ctx.textAlign = 'right';
   ctx.font = '11px ui-monospace, Menlo, monospace';
@@ -421,9 +492,15 @@ function render(alpha) {
   ctx.globalAlpha = 1;
   ctx.textAlign = 'left';
 
-  const atOne = nearest && nearestD < REACH && nearest.moment && !card.isOpen();
-  hud.textContent = atOne ? 'tap to read' : '';
-  hud.style.opacity = atOne ? '1' : '0';
+  const busy = card.isOpen() || panel.isOpen();
+  const atHome = Math.abs(slime.x - HOME_X) < 190 && !busy;
+  const atOne = !atHome && nearest && nearestD < REACH && nearest.moment && !busy;
+  const atNode = !busy && nodes.some(n => !tend.nodeTaken(n.id) &&
+    Math.abs(n.x - slime.x) < 44 && Math.abs(heightAt(n.x) - slime.y) < 66);
+  hud.textContent = atNode ? 'hold to gather'
+                  : atHome ? 'tap to tend'
+                  : atOne ? 'tap to read' : '';
+  hud.style.opacity = (atNode || atHome || atOne) ? '1' : '0';
 }
 
 /* Motes.
@@ -580,7 +657,7 @@ const TAP_SLOP = 8;            // css pixels of travel still counted as a tap
 
 canvas.addEventListener('pointerdown', e => {
   if (pid !== null) return;
-  pid = e.pointerId; dragging = true;
+  pid = e.pointerId; dragging = true; holding = true;
   lastX = downX = e.clientX; lastY = downY = e.clientY;
   try { canvas.setPointerCapture(pid); } catch {}
 });
@@ -589,20 +666,9 @@ canvas.addEventListener('pointermove', e => {
   if (!dragging || e.pointerId !== pid) return;
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   pending += dx;
+  pendingY += dy;
   lastX = e.clientX; lastY = e.clientY;
 
-  /* A flick upwards leaps. Steeper than it is wide, so running fast never
-   * launches him by accident — the gesture has to actually mean "up". */
-  const now = performance.now();
-  if (dy < -7 && Math.abs(dy) > Math.abs(dx) * 1.4 && now - lastLeapAt > 220) {
-    lastLeapAt = now;
-    leap();
-  }
-});
-let lastLeapAt = 0;
-
-addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.key === 'ArrowUp' || e.key === 'w') { e.preventDefault(); leap(); }
 });
 
 /* Every plausible end of a press releases: a lost pointerup is routine on a
@@ -614,10 +680,16 @@ const release = e => {
    * something to say, opens it. A drag is a drag and opens nothing. */
   if (dragging && e && e.clientX != null &&
       Math.hypot(e.clientX - downX, e.clientY - downY) <= TAP_SLOP) {
+    if (Math.abs(slime.x - HOME_X) < 190) {
+      slime.vx = 0;
+      panel.open();
+      dragging = false; pid = null;
+      return;
+    }
     const at = atStation();
     if (at) { slime.vx = slime.vy = 0; card.open(at.moment); }
   }
-  dragging = false; pid = null;
+  dragging = false; holding = false; pid = null;
 };
 
 /* The nearest thing within reach that has something behind it. */
@@ -661,6 +733,11 @@ if (['localhost', '127.0.0.1'].includes(location.hostname)) {
     slime, cam, STATIONS,
     get placed() { return placed; },
     get finds() { return findsPlaced; },
+    get nodes() { return nodes; },
+    tend, HOME_X,
+    home: () => { slime.x = HOME_X - 90; slime.y = heightAt(slime.x); slime.vx = slime.vy = 0;
+                  cam.x = cam.px = slime.x; cam.y = cam.py = slime.y; },
+    give: (k, n) => { tend.take(k, n); },
     get kept() { return kept; },
     toFind: i => { const f = findsPlaced[i]; slime.x = f.x; slime.y = f.y; slime.vx = slime.vy = 0;
                    cam.x = cam.px = f.x; cam.y = cam.py = f.y; },

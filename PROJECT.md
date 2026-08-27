@@ -137,24 +137,44 @@ No build step, no framework, no dependencies. Plain HTML, CSS and ES modules.
 
 ## How it moves
 
-**Traversal is the point.** He was pinned to the ground and scrubbed along it,
-which is a gesture, not a character. Now:
+**No gravity — free movement in both axes.** Drag steers him anywhere; the
+land is a floor he cannot sink through, and there is a ceiling at −560.
 
-- **Gravity and a leap.** Flick upwards to jump (Space on a keyboard). ~120px
-  of rise, real arc, real air time.
-- **Coyote time** (0.10s) — a leap still works just after walking off an edge.
-- **Jump buffering** (0.14s) — a leap asked for just before landing is
-  remembered rather than dropped. Both are invisible and both are the
-  difference between responsive and broken.
-- **Air control at 42%** — a leap commits and cannot be flown.
-- Ground drag is heavy so he settles; air drag is almost nothing so an arc
-  stays an arc.
-- **Landing shoves the rim springs**, so he flattens on impact instead of
-  arriving as a circle.
+There *was* gravity, a leap, coyote time and jump buffering, and it felt good.
+It was removed deliberately: **platforming and architecture pull in opposite
+directions.** A house with rooms is something to move around *inside*, and a
+jump arc can only ever take you up and back down again. Free movement means
+the world can have interiors, floors, and places above and below the ground
+that are simply somewhere to go. (The reasoning is in the comment at the top of
+the traversal block in `main.js`, so nobody re-adds gravity without meeting the
+argument.)
 
-The land is built to be leapt over: squashing a sine through `tanh` flattens
-its peaks and steepens its shoulders, turning rolling hills into ledges and
-drops. Sines alone only ever give undulation.
+**Places worth going to** (`FEATURES` in `terrain.js`). Sines give texture but
+never a destination — every hill looks like every other hill. Eleven hand-placed
+hollows and ledges give the land somewhere to *be*: cosine-windowed, so a hollow
+always has a walkable slope out of it.
+
+**Gathering costs effort.** Resources sit only at the extremes of those
+features — water and stone at the bottom of hollows, wood and seeds on top of
+ledges — never on the open path. Reaching one is a detour; taking it needs her
+to stand still and **hold for 0.9s**, with a ring that fills. Walking over
+something and having it appear in a bag is a pickup, not a harvest. Letting go
+drains the ring back rather than snapping it to zero, so a stumble does not
+cost all the effort. Nodes regrow after **5 real hours**.
+
+**Tending, not surviving** (`tend.js`). Gather → make → the place becomes
+yours. **There is no health, no thirst and no death, and that is a decision
+rather than an omission**: a bar that drains while she is not playing turns a
+gift into an obligation, and the first bad week turns it into guilt. Nothing
+wilts, nothing scolds her, nothing can be lost.
+
+What replaces the pressure is **real time**. A seed takes 3 real hours to
+sprout, 24 to come into leaf, 44 to flower — so the world is genuinely
+different tomorrow morning. Watering brings a plot forward six hours; it is
+never required, so forgetting costs patience and never the plant. Six things to
+build, from a path to a roof. Progress is in `localStorage` under `us.tend`,
+with a merge function ready for the backend that takes the larger value per
+field, so two devices never subtract from each other.
 
 **Twelve things to find** (`src/finds.js`). Every one is an actual object from
 his story — the charm she crocheted, the bracelet from Helsinki, the Lego, the

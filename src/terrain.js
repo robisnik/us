@@ -58,6 +58,45 @@ function mixRegions(x) {
   return {a: r, b: next, t: (x - (r.to - BLEND)) / BLEND};
 }
 
+/* Places worth going to.
+ *
+ * Sines give texture, never a destination — every hill looks like every other
+ * hill and nothing is anywhere in particular. These are deliberate: a hollow
+ * she has to climb down into and back out of, a pillar she has to leap for.
+ * The resources live at their extremes, so gathering is a journey rather than
+ * a collision.
+ *
+ * Sides are cosine-windowed, so a hollow is always walkable out of. A pit with
+ * vertical walls and a 123px jump would be a trap, and a trap in a birthday
+ * present is unforgivable.
+ */
+export const FEATURES = [
+  {x: 3050,  kind: 'ledge',  size: 104, width: 190},
+  {x: 4200,  kind: 'hollow', size: 150, width: 300},
+  {x: 5150,  kind: 'ledge',  size: 112, width: 200},
+  {x: 6100,  kind: 'hollow', size: 178, width: 340},
+  {x: 7000,  kind: 'ledge',  size: 96,  width: 175},
+  {x: 8300,  kind: 'hollow', size: 196, width: 380},
+  {x: 9250,  kind: 'ledge',  size: 118, width: 210},
+  {x: 10400, kind: 'hollow', size: 210, width: 400},
+  {x: 11350, kind: 'ledge',  size: 108, width: 195},
+  {x: 12500, kind: 'hollow', size: 165, width: 320},
+  {x: 13400, kind: 'ledge',  size: 100, width: 185},
+];
+
+function features(x) {
+  let d = 0;
+  for (const f of FEATURES) {
+    const dx = Math.abs(x - f.x);
+    if (dx > f.width) continue;
+    /* A raised cosine: flat-ish at the centre, smoothly to nothing at the
+     * edges, so there is somewhere to stand and a slope to walk. */
+    const w = 0.5 + 0.5 * Math.cos((dx / f.width) * Math.PI);
+    d += (f.kind === 'hollow' ? -1 : 1) * f.size * w * w;
+  }
+  return d;
+}
+
 /* Layered sines. Not noise: this has to be identical on every device and every
  * visit, and three sines at unrelated periods never visibly repeat over the
  * distance she will actually walk. */
@@ -78,7 +117,7 @@ export function heightAt(x) {
   const {a, b, t} = mixRegions(x);
   const ha = shape(x, a.roll, a.soft);
   const hb = shape(x, b.roll, b.soft);
-  return -(ha + (hb - ha) * ease(t));
+  return -(ha + (hb - ha) * ease(t)) - features(x);
 }
 
 /* The slope underfoot, for leaning the creature and for deciding whether a

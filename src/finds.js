@@ -18,34 +18,33 @@ const TAU = Math.PI * 2;
 /* `at` is a fraction along the world; `lift` is how far above the ground it
  * floats, in pixels.
  *
- * A leap from flat ground reaches about 123px, so nothing is placed above 108.
- * Anything over ~80 needs a leap; anything higher than the apex would need her
- * to find the one hillock that makes it possible, which is not a puzzle, it is
- * a bug she cannot tell apart from one. */
+ * With free movement there is no jump ceiling to respect, so these can sit
+ * genuinely high — high enough that she has to notice one and choose to go up
+ * for it. Nothing is unreachable; everything costs a detour. */
 export const FINDS = [
-  {id: 'pancakes', name: 'cottage cheese pancakes', at: 0.20, lift: 96,
+  {id: 'pancakes', name: 'cottage cheese pancakes', at: 0.20, lift: 150,
    note: 'You showed up with these out of nowhere.'},
-  {id: 'kebab', name: 'the kebab', at: 0.26, lift: 40,
+  {id: 'kebab', name: 'the kebab', at: 0.26, lift: 72,
    note: 'Such a German story.'},
-  {id: 'sweets', name: 'sweets from Sweden', at: 0.33, lift: 104,
+  {id: 'sweets', name: 'sweets from Sweden', at: 0.33, lift: 210,
    note: 'A week away and you still came back with these.'},
-  {id: 'bracelet', name: 'the flower bracelet', at: 0.42, lift: 98,
+  {id: 'bracelet', name: 'the flower bracelet', at: 0.42, lift: 176,
    note: 'I brought it back from Helsinki for you.'},
-  {id: 'charm', name: 'the crocheted charm', at: 0.47, lift: 98,
+  {id: 'charm', name: 'the crocheted charm', at: 0.47, lift: 176,
    note: 'You made it. It still hangs on my bag.'},
-  {id: 'shell', name: 'a shell from Jūrmala', at: 0.55, lift: 34,
+  {id: 'shell', name: 'a shell from Jūrmala', at: 0.55, lift: 60,
    note: 'A whole day of doing next to nothing.'},
-  {id: 'lego', name: 'the McQueen Lego', at: 0.60, lift: 100,
+  {id: 'lego', name: 'the McQueen Lego', at: 0.60, lift: 195,
    note: 'My birthday. You knew exactly what to get.'},
-  {id: 'brownies', name: 'the brownies', at: 0.66, lift: 76,
+  {id: 'brownies', name: 'the brownies', at: 0.66, lift: 130,
    note: 'We baked them before Poland. Your family loved them too.'},
-  {id: 'souvenir', name: 'a souvenir from Poland', at: 0.70, lift: 102,
+  {id: 'souvenir', name: 'a souvenir from Poland', at: 0.70, lift: 240,
    note: 'You opened them like a child on Christmas morning.'},
-  {id: 'keys', name: 'the car keys', at: 0.74, lift: 88,
+  {id: 'keys', name: 'the car keys', at: 0.74, lift: 165,
    note: 'You were so thrilled for me.'},
-  {id: 'wine', name: 'the wine', at: 0.86, lift: 100,
+  {id: 'wine', name: 'the wine', at: 0.86, lift: 195,
    note: 'The last two nights. Sun, wine, laughing.'},
-  {id: 'ticket', name: 'the boarding pass', at: 0.93, lift: 58,
+  {id: 'ticket', name: 'the boarding pass', at: 0.93, lift: 110,
    note: 'And then it was time to say goodbye.'},
 ];
 

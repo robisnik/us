@@ -18,6 +18,8 @@ import {heightAt, slopeAt, paletteAt, scatter, REGIONS, WORLD_END, FEATURES} fro
 import {FINDS, drawFind} from './finds.js';
 import * as tend from './tend.js';
 import {nodesFor, drawNode, drawHome} from './homestead.js';
+import {setPlot, PLOT, onPlot} from './terrain.js';
+import {ROOM_H, FLOOR_W, CELL, zoneRange, cellX, floors} from './plot.js';
 import * as panel from './panel.js';
 
 const STEP = 1 / 120;          // fixed simulation step
@@ -76,7 +78,15 @@ const nodes = nodesFor(WORLD_END, FEATURES).map(n => ({...n, y: 0}));
 const pouchBtn = document.getElementById('pouch');
 const pouchCount = document.getElementById('pouch-count');
 pouchBtn.addEventListener('click', () => panel.open(null, false));
-const HOME_X = WORLD_END - 700;
+/* Past the last moment, with a gap. Her story ends at the eighteen things and
+ * the homestead is what comes after it — so it must not sit among the
+ * memories, which is where it was landing and why it overlapped one. */
+const HOME_X = WORLD_END - 620;
+
+/* Cut the terrace before anything asks the ground how high it is. Everything
+ * at the homestead stands on this flat, which is the whole reason the house
+ * and the garden no longer lean. */
+setPlot(HOME_X);
 let toast = null, toastAt = 0;
 
 /* Gathering: how long she must hold, and how far along she is. */
@@ -84,6 +94,16 @@ const GATHER_TIME = 0.9;
 let gather = null, holding = false;
 
 function say(text) { toast = text; toastAt = clock; }
+
+/* Where the house actually is, in world coordinates, or null before it exists.
+ * Derived from the same grid that draws it, so the space she can stand in and
+ * the space that is drawn can never disagree. */
+function houseSpan() {
+  if (!tend.built().includes('walls')) return null;
+  const r = zoneRange('house');
+  const x0 = cellX(PLOT.x, PLOT.half, r.from);
+  return {x0, x1: x0 + (r.to - r.from) * CELL, floors: Math.max(1, floors(tend.built()))};
+}
 
 /* What happened while she was away, said once, on opening.
  *
@@ -145,7 +165,8 @@ async function loadStory() {
      * chronological and the regions are in the same order, so walking it is
      * walking the year — school, Vienna, the parks, the beach, the lake, the
      * airport, now. */
-    const usable = WORLD_END - FIRST * 2;
+    /* Stop the moments well short of the homestead so the two never collide. */
+    const usable = WORLD_END - FIRST - 1900;
     placed = moments.map((m, i) => ({
       x: FIRST + (moments.length === 1 ? 0 : (i / (moments.length - 1)) * usable),
       station: byName[m.station] || byName.photo,
@@ -304,8 +325,23 @@ function simulate(h) {
 
   /* The tether. Nothing happens within REACH; past it the pull grows with how
    * far he has stretched, and STRETCH is where it becomes immovable. */
+  /* Inside the house the floors bound her, not the ground.
+   *
+   * The building is the boundary in there, so the outdoor tether is skipped
+   * and the ceiling is the top of the top floor plus headroom. Without this,
+   * "you can go inside" is a drawing rather than a place: the tether would
+   * pull her back down through her own first floor.
+   */
+  const span = houseSpan();
+  const inHouse = !!span && slime.x > span.x0 && slime.x < span.x1;
+  if (inHouse) {
+    const roof = PLOT.y - span.floors * ROOM_H - 18;
+    if (slime.y < roof) { slime.y = roof; slime.vy = Math.max(0, slime.vy); }
+  }
+
+
   const up = g - slime.y;
-  if (up > LIFT_FREE) {
+  if (!inHouse && up > LIFT_FREE) {
     const over = (up - LIFT_FREE) / LIFT_MAX;
     slime.vy += over * over * TETHER_K * 60 * h;
     if (up > LIFT_FREE + LIFT_MAX) {
@@ -431,8 +467,10 @@ function render(alpha) {
   drawLand(cx, cy, W, H, pal, sy2);
 
   /* The homestead, drawn behind everything she might stand in front of. */
-  if (Math.abs(HOME_X - cx) < W) {
-    drawHome(ctx, HOME_X - cx + W / 2, sy2(heightAt(HOME_X)), clock);
+  if (Math.abs(HOME_X - cx) < W + 500) {
+    drawHome(ctx,
+      (wx, wy) => ({x: wx - cx + W / 2, y: sy2(wy)}),
+      PLOT, tend.built(), clock);
   }
 
   for (const n of nodes) {

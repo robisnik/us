@@ -8,6 +8,7 @@
 
 import {P} from './theme.js';
 import * as tend from './tend.js';
+import {CELL, FLOOR_W, ROOM_H, cellX, layout, rooms, floors} from './plot.js';
 
 const TAU = Math.PI * 2;
 
@@ -72,83 +73,171 @@ export function drawNode(ctx, node, x, gy, t, taken, near) {
   }
 }
 
-/* The homestead itself. Everything she has built, plus every plot, drawn on
- * the ground she chose to make hers. */
-export function drawHome(ctx, x0, gy, t) {
-  const b = tend.built();
+/* The homestead, drawn from the grid.
+ *
+ * Everything here derives its position from a cell in a zone on a level
+ * terrace. Nothing is offset from sloping ground, which is what made the old
+ * version lean and float.
+ *
+ * The house is a section rather than a facade: walls and a roof make a shell,
+ * and inside is a grid of rooms she can actually stand in.
+ */
+export function drawHome(ctx, toScreen, plot, built, t) {
+  const gy = toScreen(plot.x, plot.y).y;
+  const placed = layout(built);
 
-  if (b.includes('path')) {
-    ctx.fillStyle = '#cfc6b4'; ctx.globalAlpha = 0.8;
-    for (let i = 0; i < 7; i++) {
-      ctx.beginPath();
-      ctx.ellipse(x0 - 150 + i * 26, gy - 1, 9, 3.5, 0, 0, TAU); ctx.fill();
+  /* The terrace itself, so the cut into the hill is visible as a thing that
+   * was done rather than as ground that happens to be flat. */
+  const l = toScreen(plot.x - plot.half, plot.y).x;
+  const r = toScreen(plot.x + plot.half, plot.y).x;
+  ctx.fillStyle = 'rgba(120,108,88,0.10)';
+  ctx.fillRect(l, gy, r - l, 4);
+
+  if (built.includes('path')) {
+    ctx.fillStyle = '#cfc6b4';
+    for (let i = 0; i < 14; i++) {
+      const px = l + 16 + i * ((r - l - 32) / 13);
+      ctx.beginPath(); ctx.ellipse(px, gy + 2, 8, 3, 0, 0, TAU); ctx.fill();
     }
-    ctx.globalAlpha = 1;
   }
-  if (b.includes('fence')) {
-    ctx.strokeStyle = '#8a6a4c'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-    for (let i = 0; i < 9; i++) {
-      const fx = x0 + 60 + i * 22;
-      ctx.beginPath(); ctx.moveTo(fx, gy); ctx.lineTo(fx, gy - 20); ctx.stroke();
+  if (built.includes('fence')) {
+    ctx.strokeStyle = '#8a6a4c'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    for (const end of [l, r]) {
+      for (let i = 0; i < 3; i++) {
+        const fx = end + (end === l ? i * 9 : -i * 9);
+        ctx.beginPath(); ctx.moveTo(fx, gy); ctx.lineTo(fx, gy - 18); ctx.stroke();
+      }
     }
-    ctx.beginPath(); ctx.moveTo(x0 + 60, gy - 14); ctx.lineTo(x0 + 60 + 8 * 22, gy - 14); ctx.stroke();
   }
-  if (b.includes('walls')) {
-    ctx.fillStyle = '#d8cdb8';
-    ctx.fillRect(x0 - 60, gy - 62, 96, 62);
-    ctx.strokeStyle = P.ink; ctx.lineWidth = 2; ctx.globalAlpha = 0.5;
-    ctx.strokeRect(x0 - 60, gy - 62, 96, 62); ctx.globalAlpha = 1;
+
+  for (const item of placed) {
+    const x0 = toScreen(cellX(plot.x, plot.half, item.cell), plot.y).x;
+    const w = item.cells * CELL * (toScreen(plot.x + CELL, plot.y).x
+                                 - toScreen(plot.x, plot.y).x) / CELL;
+    if (item.id === 'walls') drawShell(ctx, x0, gy, w, built, t);
+    else drawYardThing(ctx, item.id, x0, gy, w, t);
+  }
+}
+
+/* Things that stand in the open: a well, a woodpile, a bench. One cell each,
+ * drawn from the cell's left edge so they line up with everything else. */
+function drawYardThing(ctx, id, x, gy, w, t) {
+  const c = x + w / 2;
+  if (id === 'well') {
+    ctx.fillStyle = '#a9a094';
+    ctx.beginPath(); ctx.ellipse(c, gy - 7, 15, 8, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#5c6b74';
+    ctx.beginPath(); ctx.ellipse(c, gy - 9, 9, 5, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#8a6a4c'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(c - 12, gy - 12); ctx.lineTo(c - 12, gy - 30);
+    ctx.lineTo(c + 12, gy - 30); ctx.lineTo(c + 12, gy - 12); ctx.stroke();
+  } else if (id === 'woodpile') {
     ctx.fillStyle = '#8a6a4c';
-    ctx.fillRect(x0 - 26, gy - 34, 22, 34);
+    for (let row = 0; row < 3; row++) {
+      for (let i = 0; i < 3 - row; i++) {
+        ctx.beginPath();
+        ctx.ellipse(c - 14 + row * 7 + i * 14, gy - 6 - row * 11, 6, 5, 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+  } else if (id === 'quarry') {
+    ctx.fillStyle = '#a9a094';
+    for (const [dx, dy, rr] of [[-11, -6, 9], [5, -8, 11], [-2, -18, 7]]) {
+      ctx.beginPath(); ctx.ellipse(c + dx, gy + dy, rr, rr * 0.72, 0.2, 0, TAU); ctx.fill();
+    }
+  } else if (id === 'bench') {
+    ctx.fillStyle = '#8a6a4c';
+    ctx.fillRect(c - 18, gy - 16, 36, 5);
+    ctx.fillRect(c - 15, gy - 12, 4, 12);
+    ctx.fillRect(c + 11, gy - 12, 4, 12);
+  } else if (id === 'bed' || id === 'herbs') {
+    /* A garden bed: a frame of earth. What grows in it is drawn separately. */
+    ctx.fillStyle = id === 'herbs' ? '#6f7d55' : '#8a7355';
+    ctx.beginPath();
+    ctx.roundRect(c - w / 2 + 4, gy - 9, w - 8, 11, 2);
+    ctx.fill();
+    ctx.strokeStyle = '#6b5740'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(c - w / 2 + 4, gy - 9, w - 8, 11, 2);
+    ctx.stroke();
   }
-  if (b.includes('roof')) {
+}
+
+/* The house.
+ *
+ * A doll's-house section: the shell, then the rooms inside it, then a roof on
+ * top. The front is open to the camera — no door to fumble with, because
+ * walking into the footprint is entering.
+ */
+function drawShell(ctx, x, gy, w, built, t) {
+  const rs = rooms(built);
+  const nFloors = Math.max(1, floors(built));
+  const scale = w / (FLOOR_W * CELL);
+  const rh = ROOM_H * scale;
+  const top = gy - nFloors * rh;
+
+  /* Walls. */
+  ctx.fillStyle = '#e0d5bf';
+  ctx.fillRect(x, top, w, nFloors * rh);
+  ctx.strokeStyle = 'rgba(79,72,64,0.45)'; ctx.lineWidth = 2;
+  ctx.strokeRect(x, top, w, nFloors * rh);
+
+  /* Room divisions, so it reads as a section and not a box. */
+  ctx.strokeStyle = 'rgba(79,72,64,0.18)'; ctx.lineWidth = 1;
+  for (let f = 1; f < nFloors; f++) {
+    ctx.beginPath(); ctx.moveTo(x, gy - f * rh); ctx.lineTo(x + w, gy - f * rh); ctx.stroke();
+  }
+  for (let c = 1; c < FLOOR_W; c++) {
+    ctx.beginPath();
+    ctx.moveTo(x + (c * w) / FLOOR_W, top);
+    ctx.lineTo(x + (c * w) / FLOOR_W, gy);
+    ctx.stroke();
+  }
+
+  /* What is in each room. */
+  for (const room of rs) {
+    if (!room.holds) continue;
+    const rx = x + (room.col * w) / FLOOR_W;
+    const ry = gy - room.floor * rh;
+    drawInRoom(ctx, room.holds, rx, ry, w / FLOOR_W, rh, t);
+  }
+
+  if (built.includes('roof')) {
     ctx.fillStyle = '#a8674f';
     ctx.beginPath();
-    ctx.moveTo(x0 - 72, gy - 60); ctx.lineTo(x0 - 12, gy - 100);
-    ctx.lineTo(x0 + 48, gy - 60); ctx.closePath(); ctx.fill();
-    /* A lit window, once there is somewhere for the light to be. */
-    ctx.fillStyle = P.warm;
-    ctx.globalAlpha = 0.55 + Math.sin(t * 1.4) * 0.08;
-    ctx.fillRect(x0 + 4, gy - 48, 16, 14);
-    ctx.globalAlpha = 1;
+    ctx.moveTo(x - 10, top);
+    ctx.lineTo(x + w / 2, top - 34 * scale);
+    ctx.lineTo(x + w + 10, top);
+    ctx.closePath(); ctx.fill();
   }
-  if (b.includes('well')) {
-    ctx.fillStyle = '#a9a094';
-    ctx.beginPath(); ctx.ellipse(x0 + 128, gy - 6, 16, 8, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#5c6b74';
-    ctx.beginPath(); ctx.ellipse(x0 + 128, gy - 8, 10, 5, 0, 0, TAU); ctx.fill();
-  }
-  if (b.includes('bench')) {
-    ctx.fillStyle = '#8a6a4c';
-    ctx.fillRect(x0 + 176, gy - 16, 40, 5);
-    ctx.fillRect(x0 + 180, gy - 12, 4, 12);
-    ctx.fillRect(x0 + 208, gy - 12, 4, 12);
-  }
+}
 
-  /* The plots. Each one is a real plant that grew in real hours. */
-  tend.plots().forEach((p, i) => {
-    const px = x0 + 66 + (i % 8) * 22;
-    const py = gy - Math.floor(i / 8) * 16;
-    const s = tend.stageOf(p);
-    ctx.strokeStyle = '#6f9455'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    if (s === 0) {
-      ctx.fillStyle = '#a08b6c';
-      ctx.beginPath(); ctx.ellipse(px, py - 2, 5, 2.5, 0, 0, TAU); ctx.fill();
-    } else {
-      const h = 5 + s * 5;
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - h); ctx.stroke();
-      if (s >= 2) {
-        ctx.beginPath();
-        ctx.moveTo(px, py - h * 0.6); ctx.lineTo(px - 6, py - h * 0.85);
-        ctx.moveTo(px, py - h * 0.6); ctx.lineTo(px + 6, py - h * 0.85);
-        ctx.stroke();
-      }
-      if (s >= 4) {
-        ctx.fillStyle = P.blush;
-        ctx.beginPath(); ctx.arc(px, py - h - 3, 4, 0, TAU); ctx.fill();
-        ctx.fillStyle = P.warm;
-        ctx.beginPath(); ctx.arc(px, py - h - 3, 1.6, 0, TAU); ctx.fill();
-      }
-    }
-  });
+function drawInRoom(ctx, id, x, y, w, h, t) {
+  const c = x + w / 2, floor = y - 3;
+  if (id === 'hearth') {
+    ctx.fillStyle = '#7b6a58';
+    ctx.fillRect(c - 13, floor - 20, 26, 20);
+    const flick = 0.7 + Math.sin(t * 3.1) * 0.16;
+    ctx.fillStyle = `rgba(233,163,79,${flick})`;
+    ctx.beginPath();
+    ctx.moveTo(c - 6, floor - 3);
+    ctx.quadraticCurveTo(c, floor - 18, c + 6, floor - 3);
+    ctx.closePath(); ctx.fill();
+  } else if (id === 'window') {
+    ctx.fillStyle = 'rgba(233,163,79,0.5)';
+    ctx.fillRect(c - 11, y - h + 12, 22, 18);
+    ctx.strokeStyle = 'rgba(79,72,64,0.5)'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(c - 11, y - h + 12, 22, 18);
+    ctx.beginPath();
+    ctx.moveTo(c, y - h + 12); ctx.lineTo(c, y - h + 30); ctx.stroke();
+  } else if (id === 'shelf') {
+    ctx.fillStyle = '#8a6a4c';
+    ctx.fillRect(c - 16, y - h + 18, 32, 3);
+    ctx.fillRect(c - 16, y - h + 32, 32, 3);
+  } else if (id === 'bed2') {
+    ctx.fillStyle = '#c9b8a0';
+    ctx.beginPath(); ctx.roundRect(c - 18, floor - 12, 36, 12, 2); ctx.fill();
+    ctx.fillStyle = '#dd8b95';
+    ctx.beginPath(); ctx.roundRect(c - 18, floor - 16, 14, 7, 2); ctx.fill();
+  }
 }

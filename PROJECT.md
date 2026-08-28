@@ -281,6 +281,39 @@ Current shape: path on day 4, the garden by day 13, shelter by day 30, and the
 whole house finished around **day 42** by everyone — leaving room in a
 nine-month separation for what comes after.
 
+## The homestead (design/HOMESTEAD.md)
+
+Rebuilt around the concept that was missing: **you cannot build on a slope.**
+
+Everything before drew the house and garden at fixed offsets from a ground line
+that rolls, so they leaned, floated or half-buried themselves depending on
+where the sine happened to be. That is not a rendering bug to patch — it is a
+missing step in the world's logic.
+
+**The plot** is a terrace cut into the hillside (`PLOT` in `terrain.js`). The
+terrain function returns a flat height across it, sitting at the *average*
+natural ground so it neither towers nor sinks, with edges graded over 140px so
+it meets the hill as a slope rather than a cliff.
+
+**The grid** (`plot.js`). The terrace is 12 cells of 44px in three zones —
+garden (4), house (5), yard (3). Every built thing occupies whole cells in a
+named zone, and a zone owns its cells, so a second garden bed goes in the next
+free square rather than wherever the drawing code felt like putting it.
+**Nothing is positioned by hand any more.**
+
+**The house is a section, not a facade.** Walls and roof make a shell; inside
+is a grid of rooms, three per floor, and a floor is added above once the one
+below is full. Each room holds one thing — hearth, window, shelf, bed — and an
+empty room looks like an empty room.
+
+**She can go inside.** The tether is skipped within the house footprint and the
+ceiling becomes the top of the top floor, so a first-floor room is somewhere
+she can actually stand. Without that, "you can go inside" is a drawing: the
+outdoor tether would pull her back down through her own first floor.
+
+A room is 92px tall against her 63, so she fits with headroom. That number is
+not decorative — a room shorter than the character is a lie.
+
 ## Backend
 
 Applied and verified. **Not yet wired into the app** — `backend.js` is imported

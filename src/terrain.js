@@ -113,11 +113,56 @@ function shape(x, roll, soft) {
 
 /* Ground height at x. Negative is up — screen coordinates, so the whole engine
  * agrees on which way gravity points. */
-export function heightAt(x) {
+/* The plot.
+ *
+ * A terrace cut into the hillside. Everything at the homestead stands on this,
+ * because nothing stands on a slope — which was the actual problem: the house
+ * and the garden were drawn at fixed offsets from rolling ground, so they sat
+ * at an angle or half-buried depending on where the sine happened to be.
+ *
+ * The flat sits at the AVERAGE natural height across the plot, so the terrace
+ * neither towers over the land nor sinks into it, and its edges are graded so
+ * it meets the hill as a slope rather than a cliff. It reads as cut into the
+ * hill because that is what it is.
+ */
+export const PLOT = {x: 0, half: 380, grade: 140, y: 0};
+
+export function setPlot(centreX) {
+  PLOT.x = centreX;
+  /* Sample the natural ground across the whole terrace and sit on its mean. */
+  let sum = 0, n = 0;
+  for (let x = centreX - PLOT.half; x <= centreX + PLOT.half; x += 20) {
+    sum += natural(x); n++;
+  }
+  PLOT.y = Math.round(sum / n);
+  return PLOT;
+}
+
+export function onPlot(x) {
+  return Math.abs(x - PLOT.x) <= PLOT.half;
+}
+
+/* The natural land, before anything was cut into it. */
+function natural(x) {
   const {a, b, t} = mixRegions(x);
   const ha = shape(x, a.roll, a.soft);
   const hb = shape(x, b.roll, b.soft);
   return -(ha + (hb - ha) * ease(t)) - features(x);
+}
+
+export function heightAt(x) {
+  const g = natural(x);
+  if (!PLOT.half) return g;
+
+  const d = Math.abs(x - PLOT.x);
+  if (d <= PLOT.half) return PLOT.y;              // the flat
+  if (d >= PLOT.half + PLOT.grade) return g;      // untouched hillside
+
+  /* The graded edge: smoothstep from the terrace to whatever the land was
+   * doing, so the join has no corner in it. */
+  const t = (d - PLOT.half) / PLOT.grade;
+  const e = ease(t);
+  return PLOT.y + (g - PLOT.y) * e;
 }
 
 /* The slope underfoot, for leaning the creature and for deciding whether a

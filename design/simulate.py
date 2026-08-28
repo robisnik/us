@@ -42,6 +42,24 @@ def collect(st):
             st["made"][pid] += n * p["every"]
 
 
+def craft(st):
+    """She refines what she plainly does not need raw.
+
+    Modelled the way a person actually behaves: keep a working reserve of raw
+    material, turn the surplus into planks and bricks. Refining everything the
+    moment it is gathered would flatter the design and tell us nothing."""
+    if "workbench" not in st["built"]:
+        return
+    RESERVE = 6
+    for out, r in economy.RECIPES.items():
+        for _ in range(40):
+            if not all(st["inv"].get(k, 0) - RESERVE >= v for k, v in r["from"].items()):
+                break
+            for k, v in r["from"].items():
+                st["inv"][k] -= v
+            st["inv"][out] = st["inv"].get(out, 0) + r["gives"]
+
+
 def try_builds(st):
     """She builds what she can, cheapest first, respecting tiers."""
     done = True
@@ -55,6 +73,8 @@ def try_builds(st):
                 need = [x["id"] for x in buildtree.as_dicts() if x["tier"] == tier["needs"]]
                 if not all(n in st["built"] for n in need):
                     continue
+            if any(n not in st["built"] for n in b.get("needs", [])):
+                continue
             if all(st["inv"].get(k, 0) >= v for k, v in b["cost"].items()):
                 for k, v in b["cost"].items():
                     st["inv"][k] -= v
@@ -80,7 +100,7 @@ def day(st, rng):
     """One day: short visits, maybe a trip, and whatever she can build."""
     for _ in range(2 if rng.random() < P_SHORT_VISIT else 0):
         st["hours"] += rng.uniform(4, 9)
-        collect(st); harvest(st)
+        collect(st); harvest(st); craft(st)
         while st["inv"]["seed"] > 0 and len(st["plots"]) < 8:
             st["inv"]["seed"] -= 1
             st["plots"].append({"at": st["hours"], "water": 0})
@@ -99,6 +119,7 @@ def day(st, rng):
     if rng.random() < P_LONG_TRIP:
         for _ in range(rng.randint(*GATHER_PER_TRIP)):
             st["inv"][rng.choice(["water", "wood", "stone", "seed"])] += 1
+        craft(st)
         try_builds(st)
 
     # Advance to the next day.

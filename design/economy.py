@@ -20,6 +20,22 @@ RESOURCES = {
     # Grown rather than gathered.
     "flower": {"name": "flowers", "colour": "#dd8b95", "where": "from the garden"},
     "herb":   {"name": "herbs",   "colour": "#7f9c68", "where": "from the garden"},
+    # Made rather than found. A house is not built out of the woods; it is
+    # built out of what you did to the woods.
+    "plank":  {"name": "planks",  "colour": "#c49a6c", "where": "made at the bench"},
+    "brick":  {"name": "bricks",  "colour": "#b08068", "where": "made at the bench"},
+}
+
+# Refining.
+#
+# The point of a middle step is that gathering stops being the only verb. Raw
+# material comes from a journey; refined material comes from having been home.
+# Late building wants refined, so the two halves of the game need each other.
+#
+# Deliberately generous ratios: this is a chain, not a grind.
+RECIPES = {
+    "plank": {"from": {"wood": 2},  "gives": 1, "needs": "workbench"},
+    "brick": {"from": {"stone": 2}, "gives": 1, "needs": "workbench"},
 }
 
 # How long a node takes to come back, in hours. Slow enough to have a rhythm,

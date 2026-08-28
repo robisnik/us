@@ -9,6 +9,12 @@ is the delivery mechanism for the writing; that is the point of the whole
 mechanic and the reason it is not just a crafting menu.
 """
 
+# Rule, learned from the simulator: a tier is either raw or refined, never
+# both. Ground and garden are raw — she has just arrived and has only what she
+# carried. Everything from shelter up is refined, because by then she has a
+# workbench and refines her surplus, so raw stock sits at her working reserve
+# and a large raw cost is never met.
+
 TIERS = [
     ("ground",  "the ground",     None),
     ("garden",  "the garden",     "ground"),
@@ -17,12 +23,28 @@ TIERS = [
     ("ours",    "ours",           "home"),
 ]
 
+# Some things depend on particular other things, not just on their tier.
+#
+# Once the producers are running, income outpaces every cost and the whole late
+# game lands on the same afternoon — a materials gate stops working. The finale
+# needs a structural one: the bed goes in after the house is furnished, because
+# that is when a house becomes somewhere you sleep.
+NEEDS = {
+    "bed2": ["hearth", "window", "shelf"],
+    "roof": ["walls"],
+    "window": ["walls"],
+    "hearth": ["walls"],
+}
+
 # id, tier, name, cost, and what it changes.
 BUILDS = [
     ("path",   "ground",  "a path",         {"stone": 3},
      "so the way to the door gets worn in"),
     ("fence",  "ground",  "a fence",        {"wood": 4},
      "a line that says this bit is ours"),
+
+    ("workbench", "garden", "a workbench",  {"wood": 6, "stone": 3},
+     "so wood becomes something, instead of just being wood"),
 
     ("bed",    "garden",  "a garden bed",   {"wood": 5, "stone": 2},
      "somewhere for things to start"),
@@ -34,27 +56,32 @@ BUILDS = [
     ("woodpile", "garden", "a woodpile",   {"wood": 4, "stone": 1},
      "so there is always something to build with"),
 
-    ("walls",  "shelter", "walls",          {"wood": 16, "stone": 9},
+    ("walls",  "shelter", "walls",          {"plank": 8, "stone": 6},
      "the beginning of somewhere indoors"),
-    ("quarry", "shelter", "a quarry",       {"wood": 9, "stone": 6},
+    ("quarry", "shelter", "a quarry",       {"plank": 4, "brick": 3},
      "the slow way to build anything, which is the only way we have"),
-    ("roof",   "shelter", "a roof",         {"wood": 20, "stone": 8},
+    ("roof",   "shelter", "a roof",         {"plank": 10, "brick": 3},
      "and then it is a house"),
 
-    ("window", "home",    "a window",       {"stone": 10, "wood": 7},
+    ("window", "home",    "a window",       {"brick": 4, "plank": 3},
      "so there is a light on when you get back"),
-    ("hearth", "home",    "a hearth",       {"stone": 16, "wood": 11},
+    ("hearth", "home",    "a hearth",       {"brick": 8, "plank": 4},
      "somewhere to be cold next to and then not be cold"),
 
-    ("bench",  "ours",    "a bench",        {"wood": 12, "stone": 6},
+    ("bench",  "ours",    "a bench",        {"plank": 4, "brick": 1},
      "somewhere to sit and do nothing, which we were always good at"),
-    ("shelf",  "ours",    "a shelf",        {"wood": 14, "herb": 2},
+    ("shelf",  "ours",    "a shelf",        {"plank": 7, "herb": 3},
      "for everything you found on the way here"),
-    ("bed2",   "ours",    "a bed",          {"wood": 18, "herb": 4, "flower": 6},
+    ("bed2",   "ours",    "a bed",          {"plank": 14, "herb": 6, "flower": 10},
      "and that is the whole house, and you are in it"),
 ]
 
 # What a build turns on, beyond being drawn.
+# Rooms and floors are bought, not implied. Both are repeatable, which is why
+# they are not in BUILDS — see ROOM and FLOOR in the runtime.
+ROOM_COST = {"plank": 3, "stone": 3}
+FLOOR_COST = {"plank": 6, "brick": 4}
+
 UNLOCKS = {
     "roof":   "letters arrive here",
     "window": "the light is on at your dusk",
@@ -68,6 +95,7 @@ def as_dicts():
         out.append({
             "id": bid, "tier": tier, "name": name, "cost": cost,
             "note": note, "unlocks": UNLOCKS.get(bid),
+            "needs": NEEDS.get(bid, []),
         })
     return out
 

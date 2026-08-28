@@ -29,6 +29,16 @@
    "name": "herbs",
    "colour": "#7f9c68",
    "where": "from the garden"
+  },
+  "plank": {
+   "name": "planks",
+   "colour": "#c49a6c",
+   "where": "made at the bench"
+  },
+  "brick": {
+   "name": "bricks",
+   "colour": "#b08068",
+   "where": "made at the bench"
   }
  },
  "produces": {
@@ -88,6 +98,30 @@
   },
   "resetsTo": 1
  },
+ "recipes": {
+  "plank": {
+   "from": {
+    "wood": 2
+   },
+   "gives": 1,
+   "needs": "workbench"
+  },
+  "brick": {
+   "from": {
+    "stone": 2
+   },
+   "gives": 1,
+   "needs": "workbench"
+  }
+ },
+ "roomCost": {
+  "plank": 3,
+  "stone": 3
+ },
+ "floorCost": {
+  "plank": 6,
+  "brick": 4
+ },
  "tiers": [
   {
    "id": "ground",
@@ -124,7 +158,8 @@
     "stone": 3
    },
    "note": "so the way to the door gets worn in",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "fence",
@@ -134,7 +169,20 @@
     "wood": 4
    },
    "note": "a line that says this bit is ours",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
+  },
+  {
+   "id": "workbench",
+   "tier": "garden",
+   "name": "a workbench",
+   "cost": {
+    "wood": 6,
+    "stone": 3
+   },
+   "note": "so wood becomes something, instead of just being wood",
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "bed",
@@ -145,7 +193,8 @@
     "stone": 2
    },
    "note": "somewhere for things to start",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "well",
@@ -155,7 +204,8 @@
     "stone": 6
    },
    "note": "so the water is always here",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "herbs",
@@ -166,7 +216,8 @@
     "wood": 3
    },
    "note": "for the cooking you keep promising to teach me",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "woodpile",
@@ -177,96 +228,115 @@
     "stone": 1
    },
    "note": "so there is always something to build with",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "walls",
    "tier": "shelter",
    "name": "walls",
    "cost": {
-    "wood": 16,
-    "stone": 9
+    "plank": 8,
+    "stone": 6
    },
    "note": "the beginning of somewhere indoors",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "quarry",
    "tier": "shelter",
    "name": "a quarry",
    "cost": {
-    "wood": 9,
-    "stone": 6
+    "plank": 4,
+    "brick": 3
    },
    "note": "the slow way to build anything, which is the only way we have",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "roof",
    "tier": "shelter",
    "name": "a roof",
    "cost": {
-    "wood": 20,
-    "stone": 8
+    "plank": 10,
+    "brick": 3
    },
    "note": "and then it is a house",
-   "unlocks": "letters arrive here"
+   "unlocks": "letters arrive here",
+   "needs": [
+    "walls"
+   ]
   },
   {
    "id": "window",
    "tier": "home",
    "name": "a window",
    "cost": {
-    "stone": 10,
-    "wood": 7
+    "brick": 4,
+    "plank": 3
    },
    "note": "so there is a light on when you get back",
-   "unlocks": "the light is on at your dusk"
+   "unlocks": "the light is on at your dusk",
+   "needs": [
+    "walls"
+   ]
   },
   {
    "id": "hearth",
    "tier": "home",
    "name": "a hearth",
    "cost": {
-    "stone": 16,
-    "wood": 11
+    "brick": 8,
+    "plank": 4
    },
    "note": "somewhere to be cold next to and then not be cold",
-   "unlocks": null
+   "unlocks": null,
+   "needs": [
+    "walls"
+   ]
   },
   {
    "id": "bench",
    "tier": "ours",
    "name": "a bench",
    "cost": {
-    "wood": 12,
-    "stone": 6
+    "plank": 4,
+    "brick": 1
    },
    "note": "somewhere to sit and do nothing, which we were always good at",
-   "unlocks": null
+   "unlocks": null,
+   "needs": []
   },
   {
    "id": "shelf",
    "tier": "ours",
    "name": "a shelf",
    "cost": {
-    "wood": 14,
-    "herb": 2
+    "plank": 7,
+    "herb": 3
    },
    "note": "for everything you found on the way here",
-   "unlocks": "the things you found are kept here"
+   "unlocks": "the things you found are kept here",
+   "needs": []
   },
   {
    "id": "bed2",
    "tier": "ours",
    "name": "a bed",
    "cost": {
-    "wood": 18,
-    "herb": 4,
-    "flower": 6
+    "plank": 14,
+    "herb": 6,
+    "flower": 10
    },
    "note": "and that is the whole house, and you are in it",
-   "unlocks": null
+   "unlocks": null,
+   "needs": [
+    "hearth",
+    "window",
+    "shelf"
+   ]
   }
  ],
  "flora": [

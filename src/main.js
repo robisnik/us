@@ -103,7 +103,7 @@ function houseSpan() {
   if (!tend.built().includes('walls')) return null;
   const r = zoneRange('house');
   const x0 = cellX(PLOT.x, PLOT.half, r.from);
-  return {x0, x1: x0 + (r.to - r.from) * CELL, floors: floorsFor(tend.roomCount())};
+  return {x0, x1: x0 + (r.to - r.from) * CELL, floors: floorsFor(tend.roomCount(), tend.floorsBuilt())};
 }
 
 /* What happened while she was away, said once, on opening.

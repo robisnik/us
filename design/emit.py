@@ -56,6 +56,9 @@ def main():
         "waterGain": economy.WATER_GAIN,
         "nodeRegrow": economy.NODE_REGROW,
         "harvest": {"gives": economy.HARVEST_GIVES, "resetsTo": economy.HARVEST_RESETS_TO},
+        "recipes": economy.RECIPES,
+        "roomCost": buildtree.ROOM_COST,
+        "floorCost": buildtree.FLOOR_COST,
         "tiers": buildtree.tier_order(),
         "builds": builds,
         "flora": flora.as_dicts(),
@@ -68,6 +71,7 @@ def main():
     print(f"  {len(world['resources'])} resources, {len(world['produces'])} producers")
     print(f"  {len(builds)} builds across {len(world['tiers'])} tiers "
           f"({written} with his own words)")
+    print(f"  {len(world['recipes'])} recipes")
     print(f"  {len(world['flora'])} plant species")
     print(f"  wrote {OUT.relative_to(ROOT)}")
 

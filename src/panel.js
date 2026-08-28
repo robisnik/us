@@ -23,6 +23,7 @@ function build() {
       <h2></h2>
       <div class="panel-carry"></div>
       <div class="panel-prod"></div>
+      <div class="panel-craft"></div>
       <div class="panel-rooms"></div>
       <div class="panel-plots"></div>
       <div class="panel-builds"></div>
@@ -81,6 +82,7 @@ function render() {
   if (!home) {
     el.querySelector('.panel-prod').innerHTML = '';
     el.querySelector('.panel-rooms').innerHTML = '';
+    el.querySelector('.panel-craft').innerHTML = '';
     el.querySelector('.panel-plots').innerHTML =
       '<p class="panel-empty">The homestead is at the far end, past everything. '
       + 'Bring these there and you can plant and build.</p>';
@@ -140,6 +142,25 @@ function render() {
     : '<p class="panel-empty">Find a seed in the parks to plant something.</p>';
   pl.innerHTML = html;
 
+  /* Refining. Only shown once there is a bench, so it never appears as a
+   * feature she cannot use. */
+  const cf = el.querySelector('.panel-craft');
+  if (tend.built().includes('workbench')) {
+    let ch = '<p class="panel-label">at the bench</p><ul class="panel-builds-list">';
+    for (const [id, r] of Object.entries(tend.RECIPES)) {
+      const from = Object.entries(r.from)
+        .map(([k, n]) => `${n} ${tend.RESOURCES[k]?.name ?? k}`).join(', ');
+      const can = tend.canCraft(id);
+      ch += `<li class="${can ? 'can' : 'cant'}">
+          <div><strong>${tend.RESOURCES[id]?.name ?? id}</strong><em>from ${from}</em></div>
+          ${can ? `<button data-craft="${id}">make</button>` : `<span class="cost">${from}</span>`}
+        </li>`;
+    }
+    cf.innerHTML = ch + '</ul>';
+  } else {
+    cf.innerHTML = '';
+  }
+
   /* The house: rooms as a thing she builds, and how many stand empty.
    *
    * Shown before the build list because furniture is gated on it — being told
@@ -147,16 +168,26 @@ function render() {
   const hr = el.querySelector('.panel-rooms');
   if (tend.built().includes('walls')) {
     const free = tend.freeRooms();
-    const cost = Object.entries(tend.ROOM_COST)
+    const money = c => Object.entries(c)
       .map(([k, n]) => `${n} ${tend.RESOURCES[k]?.name ?? k}`).join(', ');
+    const space = tend.roomSpace();
     hr.innerHTML = '<p class="panel-label">the house</p>'
-      + `<p class="panel-empty">${tend.roomCount()} room${tend.roomCount() === 1 ? '' : 's'}, `
-      + `${free} empty.</p>`
+      + `<p class="panel-empty">${tend.floorsBuilt()} floor`
+      + `${tend.floorsBuilt() === 1 ? '' : 's'}, `
+      + `${tend.roomCount()} room${tend.roomCount() === 1 ? '' : 's'}, ${free} empty.</p>`
       + (tend.roomCount() >= tend.MAX_ROOMS
-          ? '<p class="panel-empty">There is no more room to build into.</p>'
-          : tend.canBuildRoom()
-            ? '<button class="panel-do" data-room="1">add a room</button>'
-            : `<p class="panel-empty">Another room needs ${cost}.</p>`);
+          ? '<p class="panel-empty">There is no more house to build into.</p>'
+          : space > 0
+            ? (tend.canBuildRoom()
+                ? '<button class="panel-do" data-room="1">add a room</button>'
+                : `<p class="panel-empty">Another room needs ${money(tend.roomCost())}.</p>`)
+            /* No space left on this floor: the next room needs somewhere to
+             * stand, which is a floor, which is its own decision. */
+            : (tend.canBuildFloor()
+                ? '<button class="panel-do" data-floor="1">add a floor</button>'
+                : tend.floorsBuilt() >= 3
+                  ? '<p class="panel-empty">Three floors is as tall as it goes.</p>'
+                  : `<p class="panel-empty">This floor is full. Another needs ${money(tend.floorCost())}.</p>`));
   } else {
     hr.innerHTML = '';
   }
@@ -193,11 +224,15 @@ function render() {
       /* "needs an empty room" is a better sentence than a greyed-out button
        * with no explanation — she can act on the first one. */
       const needsRoom = tend.INDOOR.includes(b.id) && tend.freeRooms() < 1;
-      const why = needsRoom ? 'needs an empty room' : cost;
-      bh += `<li class="${done ? 'done' : (can && !needsRoom) ? 'can' : 'cant'}">
+      const missing = (b.needs || []).filter(n => !tend.built().includes(n));
+      const blocked = needsRoom || missing.length > 0;
+      const why = missing.length
+        ? `after ${missing.map(n => tend.BUILDS.find(x => x.id === n)?.name ?? n).join(' and ')}`
+        : needsRoom ? 'needs an empty room' : cost;
+      bh += `<li class="${done ? 'done' : (can && !blocked) ? 'can' : 'cant'}">
           <div><strong>${b.name}</strong>${done ? `<em>${b.note}</em>` : ''}</div>
           ${done ? '<span class="tick">built</span>'
-                 : (can && !needsRoom) ? `<button data-build="${b.id}">build</button>`
+                 : (can && !blocked) ? `<button data-build="${b.id}">build</button>`
                        : `<span class="cost">${why}</span>`}
         </li>`;
     }
@@ -213,6 +248,10 @@ function render() {
     b.addEventListener('click', () => { if (tend.plant()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-water]').forEach(b =>
     b.addEventListener('click', () => { if (tend.water(+b.dataset.water)) { render(); onChange?.(); } }));
+  el.querySelectorAll('[data-craft]').forEach(b =>
+    b.addEventListener('click', () => { if (tend.craft(b.dataset.craft)) { render(); onChange?.(); } }));
+  el.querySelectorAll('[data-floor]').forEach(b =>
+    b.addEventListener('click', () => { if (tend.buildFloor()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-room]').forEach(b =>
     b.addEventListener('click', () => { if (tend.buildRoom()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-pick]').forEach(b =>

@@ -309,6 +309,33 @@ growth credit against a 44-hour flowering threshold: it roughly halves the
 wait without making watering pointless. It is the one thing in the game that
 helps without being asked, which is the right shape for weather in a gift.
 
+## Crafting, rooms and floors
+
+**Raw becomes refined.** Two wood make a plank, two stone a brick, at a
+workbench she builds. Everything from the shelter tier up wants refined
+material, so gathering stops being the only verb: raw comes from a journey,
+refined comes from having been home, and the two halves of the game need each
+other.
+
+**A rule the simulator taught us: a tier is either raw or refined, never both.**
+Mixing them starved the raw builds — she refines her surplus, so raw stock sits
+at her working reserve and a nine-wood cost is never met. Six builds became
+permanently unreachable and the finish rate went to zero. Ground and garden are
+raw; shelter, home and ours are refined.
+
+**Rooms and floors are bought, not implied.** Three rooms to a floor, three
+floors, nine rooms. When a floor is full the next room needs somewhere to
+stand, so a floor is its own decision and the house grows upward because she
+chose it.
+
+**Some builds need particular other builds**, not just their tier. Once the
+producers run, income outpaces every cost and the whole late game lands on one
+afternoon — a materials gate stops working. The bed needs the hearth, the
+window and the shelf, because that is when a house becomes somewhere you sleep.
+
+Current pacing, from 400 simulated players: path day 4 · garden by 19 · walls
+33 · roof 46 · the bed last at **day 53**, and everyone gets there.
+
 ## The homestead (design/HOMESTEAD.md)
 
 Rebuilt around the concept that was missing: **you cannot build on a slope.**

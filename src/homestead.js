@@ -264,7 +264,7 @@ export function drawPlant(ctx, sp, x, gy, grow, t, sway) {
  */
 function drawShell(ctx, x, gy, w, built, t) {
   const rs = rooms(built, tend.roomCount(), tend.furniture());
-  const nFloors = floorsFor(tend.roomCount());
+  const nFloors = floorsFor(tend.roomCount(), tend.floorsBuilt());
   const scale = w / (FLOOR_W * CELL);
   const rh = ROOM_H * scale;
   const top = gy - nFloors * rh;

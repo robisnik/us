@@ -41,7 +41,9 @@ export let STAGES = [{at: 0, name: 'planted'}];
 export let BUILDS = [];
 export let TIERS = [];
 export let FLORA = [];
+export let RECIPES = {};
 let WATER_GAIN = 6, REGROW_H = 5, HARVEST = {gives: {}, resetsTo: 1};
+let ROOM_C = {wood: 6, stone: 3}, FLOOR_C = {wood: 10, stone: 6};
 
 export async function loadWorld() {
   try {
@@ -54,6 +56,9 @@ export async function loadWorld() {
     BUILDS = w.builds || [];
     TIERS = w.tiers || [];
     FLORA = w.flora || [];
+    RECIPES = w.recipes || {};
+    ROOM_C = w.roomCost || ROOM_C;
+    FLOOR_C = w.floorCost || FLOOR_C;
     WATER_GAIN = w.waterGain ?? 6;
     REGROW_H = w.nodeRegrow ?? 5;
     HARVEST = w.harvest || HARVEST;
@@ -83,7 +88,7 @@ const BLANK = () => ({inv: {water: 0, wood: 0, seed: 0, stone: 0},
                       /* Rooms are counted, not listed: she can build many.
                        * Furniture is placed into them in the order it is
                        * made, so a room always holds at most one thing. */
-                      rooms: 0, furniture: [], v: 1});
+                      rooms: 0, furniture: [], floors: 1, v: 1});
 
 let state = load();
 
@@ -112,20 +117,69 @@ export function freeRooms() {
   return (state.rooms || 0) - (state.furniture || []).length;
 }
 
-/* Building a room. Repeatable, unlike everything else, and the only way the
- * house gets bigger. */
-export const ROOM_COST = {wood: 6, stone: 3};
+/* Refining. Raw material comes from a journey; refined material comes from
+ * having been home. Late building wants refined, so the two halves of the game
+ * need each other rather than one replacing the other. */
+export function canCraft(id) {
+  const r = RECIPES[id];
+  return !!r && (!r.needs || state.built.includes(r.needs)) && has(r.from);
+}
+
+export function craft(id, times = 1) {
+  let made = 0;
+  for (let i = 0; i < times; i++) {
+    if (!canCraft(id)) break;
+    const r = RECIPES[id];
+    for (const [k, n] of Object.entries(r.from)) state.inv[k] -= n;
+    state.inv[id] = (state.inv[id] || 0) + r.gives;
+    made += r.gives;
+  }
+  if (made) save();
+  return made;
+}
+
+/* Building a room, and a floor to put rooms on. Both repeatable, unlike
+ * everything else, and the only ways the house gets bigger. */
+export const ROOM_COST_FALLBACK = {wood: 6, stone: 3};
 export const MAX_ROOMS = 9;
+export const ROOMS_PER_FLOOR = 3;
+
+export const roomCost = () => ROOM_C;
+export const floorCost = () => FLOOR_C;
+
+export const floorsBuilt = () => state.floors || 1;
+
+/* A room needs a floor with space on it. A floor is its own decision, so the
+ * house grows upward because she chose to, not because a room overflowed. */
+export function roomSpace() {
+  return floorsBuilt() * ROOMS_PER_FLOOR - (state.rooms || 0);
+}
+
+export function canBuildFloor() {
+  return state.built.includes('walls')
+      && roomSpace() <= 0
+      && floorsBuilt() < 3
+      && has(FLOOR_C);
+}
+
+export function buildFloor() {
+  if (!canBuildFloor()) return false;
+  for (const [k, n] of Object.entries(FLOOR_C)) state.inv[k] -= n;
+  state.floors = floorsBuilt() + 1;
+  save();
+  return true;
+}
 
 export function canBuildRoom() {
   return state.built.includes('walls')
       && (state.rooms || 0) < MAX_ROOMS
-      && has(ROOM_COST);
+      && roomSpace() > 0
+      && has(ROOM_C);
 }
 
 export function buildRoom() {
   if (!canBuildRoom()) return false;
-  for (const [k, n] of Object.entries(ROOM_COST)) state.inv[k] -= n;
+  for (const [k, n] of Object.entries(ROOM_C)) state.inv[k] -= n;
   state.rooms = (state.rooms || 0) + 1;
   save();
   return true;
@@ -146,6 +200,9 @@ export function take(kind, n = 1) {
 export function build(id) {
   const b = BUILDS.find(x => x.id === id);
   if (!b || state.built.includes(id) || !has(b.cost) || !tierOpen(b.tier)) return false;
+  /* Some things depend on particular other things, not just on their tier —
+   * the bed goes in after the house is furnished. */
+  if ((b.needs || []).some(n => !state.built.includes(n))) return false;
   /* Something that lives indoors needs a room standing empty for it. */
   if (INDOOR.includes(id) && freeRooms() < 1) return false;
   for (const [k, n] of Object.entries(b.cost)) state.inv[k] -= n;

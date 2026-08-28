@@ -109,8 +109,10 @@ export function rooms(built, roomCount, furniture) {
   return out;
 }
 
-export function floorsFor(roomCount) {
-  return Math.max(1, Math.ceil(Math.min(roomCount, FLOOR_W * MAX_FLOORS) / FLOOR_W));
+/* Floors are built, not derived. Passing the built count keeps the drawing and
+ * the simulation reading from the same number. */
+export function floorsFor(roomCount, built = 0) {
+  return Math.max(1, built || Math.ceil(Math.min(roomCount, FLOOR_W * MAX_FLOORS) / FLOOR_W));
 }
 
 /* Room capacity is what gates furniture. A hearth needs somewhere to be. */

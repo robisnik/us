@@ -83,31 +83,41 @@ export function layout(built) {
 
 /* The house as a section: rooms on floors, not a facade.
  *
- * Rooms are cells of the house zone. A floor is added above once the one below
- * is full, so the building grows the way a building would. */
-/* A room has to be taller than she is, or "go inside" is a lie. She is 68
- * across and 63 high, so 92 gives headroom and a room she fits in twice over
- * sideways. */
+ * A room is BUILT, not conjured. The old version derived the room count from
+ * how much furniture existed, so putting in a hearth made a room appear around
+ * it — which is backwards, and the sort of thing that quietly teaches a player
+ * the world has no rules. You build a room; then it is somewhere to put
+ * something.
+ */
 export const ROOM_H = 92;
-export const FLOOR_W = 3;          // rooms per floor to start
+export const FLOOR_W = 3;          // rooms per floor before another is needed
+export const MAX_FLOORS = 3;
 
-export function rooms(built) {
+/* Every room that exists, in build order: left to right, then upward. */
+export function rooms(built, roomCount, furniture) {
   if (!built.includes('walls')) return [];
-  const inside = ['hearth', 'window', 'shelf', 'bed2'].filter(id => built.includes(id));
-  const count = Math.max(FLOOR_W, inside.length);
+  const n = Math.min(roomCount, FLOOR_W * MAX_FLOORS);
   const out = [];
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < n; i++) {
     out.push({
       index: i,
       floor: Math.floor(i / FLOOR_W),
       col: i % FLOOR_W,
-      holds: inside[i] || null,
+      holds: furniture[i] ?? null,
     });
   }
   return out;
 }
 
-export function floors(built) {
-  const r = rooms(built);
-  return r.length ? Math.max(...r.map(x => x.floor)) + 1 : 0;
+export function floorsFor(roomCount) {
+  return Math.max(1, Math.ceil(Math.min(roomCount, FLOOR_W * MAX_FLOORS) / FLOOR_W));
+}
+
+/* Room capacity is what gates furniture. A hearth needs somewhere to be. */
+export function freeRooms(roomCount, furnitureCount) {
+  return Math.min(roomCount, FLOOR_W * MAX_FLOORS) - furnitureCount;
+}
+
+export function canAddRoom(roomCount) {
+  return roomCount < FLOOR_W * MAX_FLOORS;
 }

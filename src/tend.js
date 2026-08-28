@@ -77,7 +77,11 @@ const BLANK = () => ({inv: {water: 0, wood: 0, seed: 0, stone: 0},
                       plots: [], built: [], taken: {},
                       /* When each producer last had its output collected, and
                        * when she was last here at all. */
-                      made: {}, seen: Date.now(), v: 1});
+                      made: {}, seen: Date.now(),
+                      /* Rooms are counted, not listed: she can build many.
+                       * Furniture is placed into them in the order it is
+                       * made, so a room always holds at most one thing. */
+                      rooms: 0, furniture: [], v: 1});
 
 let state = load();
 
@@ -95,6 +99,35 @@ export function save() {
 }
 
 export const get = () => state;
+export const roomCount = () => state.rooms || 0;
+export const furniture = () => state.furniture || [];
+
+/* Things that go inside a room rather than on the ground. Each needs a room
+ * standing empty — a hearth cannot exist in a house with nowhere to put it. */
+export const INDOOR = ['hearth', 'window', 'shelf', 'bed2'];
+
+export function freeRooms() {
+  return (state.rooms || 0) - (state.furniture || []).length;
+}
+
+/* Building a room. Repeatable, unlike everything else, and the only way the
+ * house gets bigger. */
+export const ROOM_COST = {wood: 6, stone: 3};
+export const MAX_ROOMS = 9;
+
+export function canBuildRoom() {
+  return state.built.includes('walls')
+      && (state.rooms || 0) < MAX_ROOMS
+      && has(ROOM_COST);
+}
+
+export function buildRoom() {
+  if (!canBuildRoom()) return false;
+  for (const [k, n] of Object.entries(ROOM_COST)) state.inv[k] -= n;
+  state.rooms = (state.rooms || 0) + 1;
+  save();
+  return true;
+}
 export const inv = () => state.inv;
 export const plots = () => state.plots;
 export const built = () => state.built;
@@ -111,6 +144,8 @@ export function take(kind, n = 1) {
 export function build(id) {
   const b = BUILDS.find(x => x.id === id);
   if (!b || state.built.includes(id) || !has(b.cost) || !tierOpen(b.tier)) return false;
+  /* Something that lives indoors needs a room standing empty for it. */
+  if (INDOOR.includes(id) && freeRooms() < 1) return false;
   for (const [k, n] of Object.entries(b.cost)) state.inv[k] -= n;
   state.built.push(id);
   /* A producer starts counting from the moment it exists. Without its own
@@ -118,6 +153,9 @@ export function build(id) {
    * so the clock it measured against was wiped before it was ever read, and
    * nothing was ever produced. */
   if (PRODUCES[id]) state.made[id] = Date.now();
+  /* Walls are the shell and come with the first room in them. */
+  if (id === 'walls') state.rooms = Math.max(1, state.rooms || 0);
+  if (INDOOR.includes(id)) state.furniture = [...(state.furniture || []), id];
   save();
   return true;
 }

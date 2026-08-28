@@ -19,7 +19,7 @@ import {FINDS, drawFind} from './finds.js';
 import * as tend from './tend.js';
 import {nodesFor, drawNode, drawHome} from './homestead.js';
 import {setPlot, PLOT, onPlot} from './terrain.js';
-import {ROOM_H, FLOOR_W, CELL, zoneRange, cellX, floors} from './plot.js';
+import {ROOM_H, FLOOR_W, CELL, zoneRange, cellX, floorsFor} from './plot.js';
 import * as panel from './panel.js';
 
 const STEP = 1 / 120;          // fixed simulation step
@@ -102,7 +102,7 @@ function houseSpan() {
   if (!tend.built().includes('walls')) return null;
   const r = zoneRange('house');
   const x0 = cellX(PLOT.x, PLOT.half, r.from);
-  return {x0, x1: x0 + (r.to - r.from) * CELL, floors: Math.max(1, floors(tend.built()))};
+  return {x0, x1: x0 + (r.to - r.from) * CELL, floors: floorsFor(tend.roomCount())};
 }
 
 /* What happened while she was away, said once, on opening.

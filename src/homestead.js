@@ -8,7 +8,7 @@
 
 import {P} from './theme.js';
 import * as tend from './tend.js';
-import {CELL, FLOOR_W, ROOM_H, cellX, layout, rooms, floors} from './plot.js';
+import {CELL, FLOOR_W, ROOM_H, cellX, layout, rooms, floorsFor} from './plot.js';
 
 const TAU = Math.PI * 2;
 
@@ -110,6 +110,25 @@ export function drawHome(ctx, toScreen, plot, built, t) {
     }
   }
 
+  /* What is growing, in the bed it belongs to. Plots fill the garden beds in
+   * order, four to a bed, so the garden looks like a garden being worked
+   * rather than plants hovering near some soil. */
+  const beds = placed.filter(i => i.id === 'bed' || i.id === 'herbs');
+  const plots = tend.plots();
+  plots.forEach((pl, i) => {
+    const bed = beds[Math.floor(i / 4)];
+    if (!bed) return;
+    const slot = i % 4;
+    const bx = toScreen(cellX(plot.x, plot.half, bed.cell), plot.y).x;
+    const bw = toScreen(cellX(plot.x, plot.half, bed.cell + 1), plot.y).x - bx;
+    const px = bx + bw * (0.2 + slot * 0.2);
+    const stage = tend.stageOf(pl);
+    const grow = stage / (tend.STAGES.length - 1);
+    const sp = tend.FLORA[i % Math.max(1, tend.FLORA.length)];
+    drawPlant(ctx, sp, px, gy - 6, Math.max(0.12, grow), t,
+              Math.sin(t * 0.7 + i));
+  });
+
   for (const item of placed) {
     const x0 = toScreen(cellX(plot.x, plot.half, item.cell), plot.y).x;
     const w = item.cells * CELL * (toScreen(plot.x + CELL, plot.y).x
@@ -163,6 +182,80 @@ function drawYardThing(ctx, id, x, gy, w, t) {
   }
 }
 
+/* A plant, built from its description rather than drawn.
+ *
+ * flora.py says how a species is shaped — stem height and bend, how many
+ * leaves and where, what the flower is made of — and this assembles it at
+ * whatever size and stage is needed. Six species already exist there and had
+ * never once appeared on screen; adding a seventh is six lines of Python and
+ * no new artwork.
+ *
+ * `grow` is 0..1 across the plant's life, so a sprout is the same plant as a
+ * flower, smaller and without its bloom.
+ */
+export function drawPlant(ctx, sp, x, gy, grow, t, sway) {
+  if (!sp) return;
+  const [h, bend, thick] = sp.stem;
+  const H = h * grow;
+  const lean = (bend + sway * 4) * grow;
+
+  ctx.strokeStyle = '#6f9455';
+  ctx.lineWidth = Math.max(1, thick * (0.5 + grow * 0.5));
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, gy);
+  ctx.quadraticCurveTo(x + lean * 0.4, gy - H * 0.55, x + lean, gy - H);
+  ctx.stroke();
+
+  const [n, first, spacing, len, droop] = sp.leaves;
+  for (let i = 0; i < n; i++) {
+    const at = first + i * spacing;
+    if (at > grow) continue;
+    const ly = gy - H * at;
+    const lx = x + lean * at;
+    const dir = i % 2 ? 1 : -1;
+    const L = len * grow;
+    ctx.beginPath();
+    ctx.moveTo(lx, ly);
+    ctx.quadraticCurveTo(lx + dir * L * 0.6, ly - L * (1 - droop) * 0.5,
+                         lx + dir * L, ly + L * droop * 0.3);
+    ctx.stroke();
+  }
+
+  /* The bloom only exists at the end of the plant's life. */
+  if (grow < 0.92) return;
+  const b = sp.bloom, bx = x + lean, by = gy - H;
+  ctx.save();
+  ctx.translate(bx, by);
+  if (b.kind === 'petals' || b.kind === 'daisy') {
+    ctx.fillStyle = b.a;
+    for (let i = 0; i < b.n; i++) {
+      ctx.rotate((Math.PI * 2) / b.n);
+      ctx.beginPath();
+      ctx.ellipse(0, -b.size * 0.9, b.size * 0.42, b.size, 0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.fillStyle = b.b;
+    ctx.beginPath(); ctx.arc(0, 0, b.size * 0.45, 0, TAU); ctx.fill();
+  } else if (b.kind === 'puff') {
+    ctx.fillStyle = b.a;
+    for (let i = 0; i < b.n; i++) {
+      const a = (i / b.n) * TAU;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * b.size * 0.6, Math.sin(a) * b.size * 0.6, b.size * 0.42, 0, TAU);
+      ctx.fill();
+    }
+  } else if (b.kind === 'spike' || b.kind === 'ear') {
+    for (let i = 0; i < b.n; i++) {
+      ctx.fillStyle = i % 2 ? b.a : b.b;
+      ctx.beginPath();
+      ctx.ellipse(0, -i * b.size * 0.8, b.size * 0.5, b.size * 0.6, 0, 0, TAU);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
 /* The house.
  *
  * A doll's-house section: the shell, then the rooms inside it, then a roof on
@@ -170,8 +263,8 @@ function drawYardThing(ctx, id, x, gy, w, t) {
  * walking into the footprint is entering.
  */
 function drawShell(ctx, x, gy, w, built, t) {
-  const rs = rooms(built);
-  const nFloors = Math.max(1, floors(built));
+  const rs = rooms(built, tend.roomCount(), tend.furniture());
+  const nFloors = floorsFor(tend.roomCount());
   const scale = w / (FLOOR_W * CELL);
   const rh = ROOM_H * scale;
   const top = gy - nFloors * rh;
@@ -194,7 +287,9 @@ function drawShell(ctx, x, gy, w, built, t) {
     ctx.stroke();
   }
 
-  /* What is in each room. */
+  /* What is in each room. An empty room is left empty on purpose — it is
+   * somewhere she has made and not yet filled, which is a different thing
+   * from nothing. */
   for (const room of rs) {
     if (!room.holds) continue;
     const rx = x + (room.col * w) / FLOOR_W;

@@ -23,6 +23,7 @@ function build() {
       <h2></h2>
       <div class="panel-carry"></div>
       <div class="panel-prod"></div>
+      <div class="panel-rooms"></div>
       <div class="panel-plots"></div>
       <div class="panel-builds"></div>
     </div>`;
@@ -79,6 +80,7 @@ function render() {
    * saying where the rest of it is. Planting and building need the place. */
   if (!home) {
     el.querySelector('.panel-prod').innerHTML = '';
+    el.querySelector('.panel-rooms').innerHTML = '';
     el.querySelector('.panel-plots').innerHTML =
       '<p class="panel-empty">The homestead is at the far end, past everything. '
       + 'Bring these there and you can plant and build.</p>';
@@ -138,6 +140,27 @@ function render() {
     : '<p class="panel-empty">Find a seed in the parks to plant something.</p>';
   pl.innerHTML = html;
 
+  /* The house: rooms as a thing she builds, and how many stand empty.
+   *
+   * Shown before the build list because furniture is gated on it — being told
+   * "you need a room" after wanting a hearth is worse than knowing first. */
+  const hr = el.querySelector('.panel-rooms');
+  if (tend.built().includes('walls')) {
+    const free = tend.freeRooms();
+    const cost = Object.entries(tend.ROOM_COST)
+      .map(([k, n]) => `${n} ${tend.RESOURCES[k]?.name ?? k}`).join(', ');
+    hr.innerHTML = '<p class="panel-label">the house</p>'
+      + `<p class="panel-empty">${tend.roomCount()} room${tend.roomCount() === 1 ? '' : 's'}, `
+      + `${free} empty.</p>`
+      + (tend.roomCount() >= tend.MAX_ROOMS
+          ? '<p class="panel-empty">There is no more room to build into.</p>'
+          : tend.canBuildRoom()
+            ? '<button class="panel-do" data-room="1">add a room</button>'
+            : `<p class="panel-empty">Another room needs ${cost}.</p>`);
+  } else {
+    hr.innerHTML = '';
+  }
+
   /* Builds, grouped by tier.
    *
    * A locked tier is shown rather than hidden, with what it is waiting for.
@@ -167,11 +190,15 @@ function render() {
       const can = tend.has(b.cost);
       const cost = Object.entries(b.cost)
         .map(([k, n]) => `${n} ${tend.RESOURCES[k]?.name ?? k}`).join(', ');
-      bh += `<li class="${done ? 'done' : can ? 'can' : 'cant'}">
+      /* "needs an empty room" is a better sentence than a greyed-out button
+       * with no explanation — she can act on the first one. */
+      const needsRoom = tend.INDOOR.includes(b.id) && tend.freeRooms() < 1;
+      const why = needsRoom ? 'needs an empty room' : cost;
+      bh += `<li class="${done ? 'done' : (can && !needsRoom) ? 'can' : 'cant'}">
           <div><strong>${b.name}</strong>${done ? `<em>${b.note}</em>` : ''}</div>
           ${done ? '<span class="tick">built</span>'
-                 : can ? `<button data-build="${b.id}">build</button>`
-                       : `<span class="cost">${cost}</span>`}
+                 : (can && !needsRoom) ? `<button data-build="${b.id}">build</button>`
+                       : `<span class="cost">${why}</span>`}
         </li>`;
     }
     bh += '</ul>';
@@ -186,6 +213,8 @@ function render() {
     b.addEventListener('click', () => { if (tend.plant()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-water]').forEach(b =>
     b.addEventListener('click', () => { if (tend.water(+b.dataset.water)) { render(); onChange?.(); } }));
+  el.querySelectorAll('[data-room]').forEach(b =>
+    b.addEventListener('click', () => { if (tend.buildRoom()) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-pick]').forEach(b =>
     b.addEventListener('click', () => { if (tend.harvest(+b.dataset.pick)) { render(); onChange?.(); } }));
   el.querySelectorAll('[data-build]').forEach(b =>

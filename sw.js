@@ -16,7 +16,7 @@ const DOC = 'index.html';
 const SHELL = [
   './', DOC,
   'src/main.js', 'src/stations.js', 'src/theme.js', 'src/card.js',
-  'src/terrain.js', 'src/finds.js', 'src/tend.js', 'src/homestead.js', 'src/panel.js',
+  'src/terrain.js', 'src/finds.js', 'src/sky.js', 'src/plot.js', 'src/tend.js', 'src/homestead.js', 'src/panel.js',
   'src/backend.js', 'src/app.css',
   'content/world.json',
   'manifest.webmanifest',

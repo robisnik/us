@@ -21,6 +21,7 @@ import {nodesFor, drawNode, drawHome} from './homestead.js';
 import {setPlot, PLOT, onPlot} from './terrain.js';
 import {ROOM_H, FLOOR_W, CELL, zoneRange, cellX, floorsFor} from './plot.js';
 import * as panel from './panel.js';
+import * as sky from './sky.js';
 
 const STEP = 1 / 120;          // fixed simulation step
 const MAX_FRAME = 0.25;
@@ -122,7 +123,8 @@ function welcomeBack() {
   }
   if (!bits.length) return;
 
-  const when = away.hours < 20 ? 'while you were gone'
+  const when = away.rained ? 'it rained while you were gone'
+             : away.hours < 20 ? 'while you were gone'
              : away.hours < 44 ? 'since yesterday'
              : `in the ${Math.round(away.hours / 24)} days you were away`;
   setTimeout(() => say(`${when}: ${bits.join(', ')}`), 900);
@@ -455,10 +457,23 @@ function render(alpha) {
   const sx = slime.px + (slime.x - slime.px) * alpha;
   const sy = slime.py + (slime.y - slime.py) * alpha;
 
-  const pal = paletteAt(slime.x);
+  /* The palette of this place, at the time of day where she is. */
+  const base = paletteAt(slime.x);
+  const now = new Date();
+  const day = sky.daylight(now);
+  const wx = sky.weather(now);
+  const pal = {
+    sky: sky.tint(base.sky, day, wx.overcast),
+    ground: sky.tint(base.ground, day, wx.overcast),
+    ink: sky.tint(base.ink, day, wx.overcast * 0.4),
+    feature: base.feature,
+    name: base.name,
+  };
 
   ctx.fillStyle = pal.sky;
   ctx.fillRect(0, 0, W, H);
+
+  drawBody(W, H, now, day);
 
   /* Screen y for a world point. Everything below agrees on this one line. */
   const HORIZON = H * 0.62;
@@ -537,6 +552,7 @@ function render(alpha) {
   drawGlow(hx, hy, Math.hypot(slime.vx, slime.vy), grounded ? 0 : 0.5);
   drawSlime(hx, hy, alpha);
   motes(W, H, cx, cy, sy2);
+  if (wx.strength > 0.12) rain(W, H, wx.strength, clock);
 
   /* One line, and only when there is something to do. A readout that is
    * always on becomes furniture and stops being read. */
@@ -558,6 +574,9 @@ function render(alpha) {
 
   /* The pouch only appears once she is carrying something, so the birthday
    * screen is never cluttered with an empty widget. */
+  /* Everything that gives off light knows what time it is. */
+  document.documentElement.style.setProperty('--night', (1 - day).toFixed(3));
+
   const total = Object.values(tend.inv()).reduce((a, b) => a + b, 0);
   pouchBtn.classList.toggle('on', total > 0);
   if (pouchCount.textContent !== String(total)) pouchCount.textContent = String(total);
@@ -594,6 +613,52 @@ function render(alpha) {
                   : atHome ? 'tap to tend'
                   : atOne ? 'tap to read' : '';
   hud.style.opacity = (atNode || atHome || atOne) ? '1' : '0';
+}
+
+/* The sun, or the moon, where it actually is right now.
+ *
+ * Not decoration: it is the clock. She can tell roughly what time it is by
+ * looking up, the same way she can outside. */
+function drawBody(W, H, now, day) {
+  const b = sky.body(now);
+  if (b.y <= 0.02) return;
+  const x = 40 + b.x * (W - 80);
+  const y = H * 0.66 - b.y * H * 0.52;
+  const r = b.moon ? 9 : 13;
+
+  const g = ctx.createRadialGradient(x, y, 1, x, y, r * 5);
+  g.addColorStop(0, b.moon ? 'rgba(214,224,246,0.28)' : `rgba(255,214,140,${0.16 + day * 0.2})`);
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r * 5, 0, Math.PI * 2); ctx.fill();
+
+  ctx.fillStyle = b.moon ? '#dfe6f4' : '#ffd98c';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  if (b.moon) {
+    /* A crescent, cut rather than drawn. */
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.arc(x + r * 0.42, y - r * 0.24, r * 0.88, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+/* Rain.
+ *
+ * Screen-space and cheap. Positions come from a hash of the index and the
+ * clock, so nothing is stored and it costs one loop. */
+function rain(W, H, strength, t) {
+  const n = Math.round(30 + strength * 70);
+  ctx.strokeStyle = 'rgba(150,175,200,0.42)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const seed = i * 71.3;
+    const x = ((Math.sin(seed) * 0.5 + 0.5) * W + t * 26 + i * 13) % (W + 40) - 20;
+    const y = (((Math.cos(seed * 1.9) * 0.5 + 0.5) * H) + t * (340 + (i % 5) * 60)) % (H + 40) - 20;
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 2.5, y + 11);
+  }
+  ctx.stroke();
 }
 
 /* Motes.

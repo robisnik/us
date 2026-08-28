@@ -16,6 +16,8 @@
  * plants is there when she next looks.
  */
 
+import * as sky from './sky.js';
+
 const SAVE = 'us.tend';
 const HOUR = 3600e3;
 
@@ -197,8 +199,29 @@ export function harvest(i) {
   return HARVEST.gives;
 }
 
+/* How much the weather has watered a plot since it was planted.
+ *
+ * Integrated from the deterministic weather rather than accumulated, so it is
+ * correct whether the app was open or the phone was in a drawer for a week —
+ * and identical for both of them, because the rain is a function of the date.
+ *
+ * Sampled every half hour and capped at a fortnight's worth of history, which
+ * is plenty: by then the plot has long since flowered. */
+export function rainSince(t0, t1 = Date.now()) {
+  const STEP = 0.5 * HOUR;
+  const from = Math.max(t0, t1 - 14 * 24 * HOUR);
+  let hours = 0;
+  for (let t = from; t < t1; t += STEP) {
+    const w = sky.weather(new Date(t));
+    if (w.raining) hours += w.strength * 0.5;
+  }
+  return hours * sky.RAIN_WATER_PER_HOUR;
+}
+
 export function ageOf(p) {
-  return (Date.now() - p.at) / HOUR + (p.water || 0) * WATER_GAIN;
+  return (Date.now() - p.at) / HOUR
+       + (p.water || 0) * WATER_GAIN
+       + rainSince(p.at);
 }
 
 export function stageOf(p) {
@@ -298,13 +321,15 @@ export function whileAway() {
     if (n) ready[PRODUCES[id].gives] = (ready[PRODUCES[id].gives] || 0) + n;
   }
 
+  const rained = gap > 0 ? rainSince(Date.now() - gap) > 0.4 : false;
+
   state.seen = Date.now();
   save();
-  return {hours: gap / HOUR, grew, ready};
+  return {hours: gap / HOUR, grew, ready, rained};
 }
 
 function stageAt(p, when) {
-  const h = (when - p.at) / HOUR + (p.water || 0) * WATER_GAIN;
+  const h = (when - p.at) / HOUR + (p.water || 0) * WATER_GAIN + rainSince(p.at, when);
   let s = 0;
   for (let i = 0; i < STAGES.length; i++) if (h >= STAGES[i].at) s = i;
   return s;

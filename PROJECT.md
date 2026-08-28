@@ -281,6 +281,34 @@ Current shape: path on day 4, the garden by day 13, shelter by day 30, and the
 whole house finished around **day 42** by everyone — leaving room in a
 nine-month separation for what comes after.
 
+## Day, night and weather (src/sky.js)
+
+**The time of day in the game is the time of day where she is.** If it is
+eleven at night in Latvia it is night here, the lamps are lit and the world is
+quiet. The game is not a place she visits; it is a place having the same
+evening she is.
+
+Sunrise and sunset **drift across the year** rather than sitting at six
+o'clock — Riga swings from about 09:00–16:18 at midwinter to 04:27–21:30 at
+midsummer, and that swing is a large part of what living there feels like.
+
+The sun and the moon are drawn where they actually are, so she can tell roughly
+what time it is by looking up. Everything keeps its own hue after dark and
+simply loses light, which is what stops the regions collapsing into one blue
+soup at night.
+
+**Weather is a function of the date, not a roll.** It is therefore the *same*
+weather for both of them — when it rains on her garden it is raining on his,
+with nothing stored and nothing sent. Wetness follows the Baltic year, heaviest
+in October and November.
+
+**Rain waters the garden**, and it is integrated from the weather function
+rather than accumulated — so it is correct whether the app was open or the
+phone was in a drawer for a week. A week outdoors earns about 22 hours of
+growth credit against a 44-hour flowering threshold: it roughly halves the
+wait without making watering pointless. It is the one thing in the game that
+helps without being asked, which is the right shape for weather in a gift.
+
 ## The homestead (design/HOMESTEAD.md)
 
 Rebuilt around the concept that was missing: **you cannot build on a slope.**
